@@ -27,6 +27,12 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
   type MountainElement = { x: number; width: number; height: number };
   type HillElement = { x: number; width: number; height: number };
   type GroundElement = { x: number; width: number; height?: number };
+  type SpeedNotification = {
+    active: boolean;
+    duration: number;
+    message: string;
+    opacity: number;
+  };
 
   const gameStateRef = useRef({
     isRunning: true,
@@ -37,7 +43,13 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
       { offset: 0, speed: 1, elements: [] as MountainElement[] },  // Far background mountains
       { offset: 0, speed: 2, elements: [] as HillElement[] },      // Mid background hills
       { offset: 0, speed: 5, elements: [] as GroundElement[] }     // Ground details
-    ]
+    ],
+    speedNotification: {
+      active: false,
+      duration: 3,
+      message: '',
+      opacity: 1.0
+    } as SpeedNotification
   });
 
   const resetGame = () => {
@@ -53,7 +65,13 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
         { offset: 0, speed: 1, elements: [] as MountainElement[] },
         { offset: 0, speed: 2, elements: [] as HillElement[] },
         { offset: 0, speed: 5, elements: [] as GroundElement[] }
-      ]
+      ],
+      speedNotification: {
+        active: false,
+        duration: 0,
+        message: '',
+        opacity: 1.0
+      }
     };
   };
   
@@ -343,13 +361,16 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
         }
 
         // Increase difficulty more aggressively
-        if (gameStateRef.current.frameCount % 300 === 0) {
+        if (gameStateRef.current.frameCount % 300 === 0 && gameStateRef.current.frameCount > 0) {
           gameStateRef.current.gameSpeed += 0.5;
           
-          // Display speed increase notification
-          ctx.fillStyle = '#FFFF00';
-          ctx.font = '16px monospace';
-          ctx.fillText(`Speed increased to ${gameStateRef.current.gameSpeed.toFixed(1)}!`, canvas.width / 2 - 100, 60);
+          // Set the speed notification to be displayed for 180 frames (about 3 seconds at 60fps)
+          gameStateRef.current.speedNotification = {
+            active: true,
+            duration: 180,
+            message: `Speed increased to ${gameStateRef.current.gameSpeed.toFixed(1)}!`,
+            opacity: 1.0
+          };
         }
       }
 
@@ -358,6 +379,54 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
       ctx.font = '20px monospace';
       ctx.fillText(`Score: ${scoreRef.current}`, 10, 30);
       ctx.fillText(`Speed: ${gameStateRef.current.gameSpeed.toFixed(1)}`, 10, 60);
+      
+      // Draw speed increase notification if active
+      if (gameStateRef.current.speedNotification.active) {
+        // Create a pulsing effect by varying the opacity
+        const notification = gameStateRef.current.speedNotification;
+        const pulseRate = Math.sin(gameStateRef.current.frameCount * 0.1) * 0.2 + 0.8; // Value between 0.6 and 1.0
+        
+        // Set up text style with glow effect
+        ctx.fillStyle = `rgba(255, 255, 0, ${notification.opacity * pulseRate})`;
+        ctx.font = 'bold 28px Arial';
+        
+        // Add shadow/glow effect
+        ctx.shadowColor = 'rgba(255, 255, 0, 0.5)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Center the text
+        const text = notification.message;
+        const textWidth = ctx.measureText(text).width;
+        const textX = (canvas.width - textWidth) / 2;
+        const textY = 100; // Position it lower on the screen for better visibility
+        
+        // Draw text with outline for better visibility
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.lineWidth = 3;
+        ctx.strokeText(text, textX, textY);
+        ctx.fillText(text, textX, textY);
+        
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Decrease the duration counter
+        notification.duration--;
+        
+        // Fade out during the last 60 frames (1 second)
+        if (notification.duration < 60) {
+          notification.opacity = notification.duration / 60;
+        }
+        
+        // Deactivate notification when duration reaches zero
+        if (notification.duration <= 0) {
+          notification.active = false;
+        }
+      }
       
       // Also update the React state periodically for high score tracking
       if (!gameOver && scoreRef.current !== score) {
