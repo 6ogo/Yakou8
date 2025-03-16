@@ -15,21 +15,20 @@ const ASCII_LOGO = `
 const HELP_TEXT = `
 Available commands:
   help           - Show this help message
-  ls            - List all repositories
-  cd REPO       - Show details for specific repository
-  cd ..         - Go back to root directory
-  cd            - Go to root directory
-  pwd           - Show current directory path
-  echo TEXT     - Repeat back the text
-  date          - Show current date and time
-  fortune       - Show a random fortune
-  calc EXPR     - Calculate a simple expression
-  history       - Show command history
-  sudo COMMAND  - Try to run a command with sudo
-  clear         - Clear terminal
-  info          - Show information about me
-  game          - Play a simple runner game
-  guess         - Play a number guessing game
+  ls             - List all repositories
+  cd REPO        - Show details for specific repository
+  cd ..          - Go back to root directory
+  cd             - Go to root directory
+  pwd            - Show current directory path
+  echo TEXT      - Repeat back the text
+  date           - Show current date and time
+  fortune        - Show a random fortune
+  calc EXPR      - Calculate a simple expression
+  history        - Show command history
+  sudo COMMAND   - Try to run a command with sudo
+  clear          - Clear terminal
+  info           - Show information about me
+  game           - Play games (type 'game help' for options)
 `;
 
 interface TerminalProps {
@@ -46,11 +45,26 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number | null>(null);
   const [gameActive, setGameActive] = useState(false);
+  const [currentGame, setCurrentGame] = useState<string>('');
   const [targetNumber, setTargetNumber] = useState(0);
   const [attempts, setAttempts] = useState(0);
+  
+  // Space shooter game state
+  interface SpaceShooterState {
+    playerPos: number;
+    meteorites: Array<{x: number; y: number}>;
+    bullets: Array<{x: number; y: number}>;
+    loot: Array<{x: number; y: number}>;
+    score: number;
+    gameOver: boolean;
+  }
+  
+  const [gameState, setGameState] = useState<SpaceShooterState | null>(null);
+  
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isTypingRef = useRef(false);
+  const gameLoopRef = useRef<number | null>(null);
 
   const fortunes = [
     "You will have a great day!",
@@ -59,6 +73,10 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
     "You will meet someone special today.",
     "Don't forget to save your work."
   ];
+  
+  // Game constants
+  const GAME_WIDTH = 20;
+  const GAME_HEIGHT = 10;
 
   const typeWriter = async (text: string) => {
     if (isTypingRef.current) return;
@@ -71,6 +89,150 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
     }
 
     isTypingRef.current = false;
+  };
+  
+  // Initialize space shooter game state
+  const initializeSpaceShooter = () => ({
+    playerPos: Math.floor(GAME_WIDTH / 2), // Player starts in the middle
+    meteorites: [],
+    bullets: [],
+    loot: [],
+    score: 0,
+    gameOver: false
+  });
+
+  // Render the space shooter game as ASCII art
+  const renderSpaceShooter = (state: SpaceShooterState) => {
+    const grid = Array(GAME_HEIGHT)
+      .fill(0)
+      .map(() => Array(GAME_WIDTH).fill(' '));
+
+    // Place player
+    grid[GAME_HEIGHT - 1][state.playerPos] = '^';
+
+    // Place meteorites
+    state.meteorites.forEach((meteor: { x: number; y: number }) => {
+      if (meteor.y >= 0 && meteor.y < GAME_HEIGHT) {
+        grid[meteor.y][meteor.x] = '*';
+      }
+    });
+
+    // Place bullets
+    state.bullets.forEach((bullet: { x: number; y: number }) => {
+      if (bullet.y >= 0 && bullet.y < GAME_HEIGHT) {
+        grid[bullet.y][bullet.x] = '|';
+      }
+    });
+
+    // Place loot
+    state.loot.forEach((item: { x: number; y: number }) => {
+      if (item.y >= 0 && item.y < GAME_HEIGHT) {
+        grid[item.y][item.x] = '$';
+      }
+    });
+
+    // Convert grid to string
+    let output = '';
+    for (let row of grid) {
+      output += row.join('') + '\n';
+    }
+    output += `Score: ${state.score}`;
+    if (state.gameOver) {
+      output += '\nGame Over! Type "q" to exit.';
+    }
+    return output;
+  };
+
+  // Update space shooter game state based on player input
+  const updateSpaceShooter = (state: SpaceShooterState, action: string): SpaceShooterState => {
+    if (state.gameOver) return state;
+
+    let newState = { ...state };
+
+    // Player movement
+    if (action === 'a' && newState.playerPos > 0) {
+      newState.playerPos -= 1;
+    } else if (action === 'd' && newState.playerPos < GAME_WIDTH - 1) {
+      newState.playerPos += 1;
+    } else if (action === ' ') {
+      newState.bullets.push({ x: newState.playerPos, y: GAME_HEIGHT - 2 });
+    }
+
+    // Move bullets upward
+    newState.bullets = newState.bullets
+      .map((bullet: any) => ({ ...bullet, y: bullet.y - 1 }))
+      .filter((bullet: any) => bullet.y >= 0);
+
+    // Move meteorites downward
+    newState.meteorites = newState.meteorites.map((meteor: any) => ({
+      ...meteor,
+      y: meteor.y + 1
+    }));
+
+    // Spawn new meteorites randomly
+    if (Math.random() < 0.1) {
+      newState.meteorites.push({
+        x: Math.floor(Math.random() * GAME_WIDTH),
+        y: 0
+      });
+    }
+
+    // Check collisions between bullets and meteorites
+    newState.bullets.forEach((bullet: any) => {
+      newState.meteorites.forEach((meteor: any, index: number) => {
+        if (bullet.x === meteor.x && bullet.y === meteor.y) {
+          newState.meteorites.splice(index, 1);
+          newState.score += 10;
+          // 30% chance to drop loot
+          if (Math.random() < 0.3) {
+            newState.loot.push({ x: meteor.x, y: meteor.y });
+          }
+        }
+      });
+    });
+
+    // Move loot downward
+    newState.loot = newState.loot.map((item: any) => ({
+      ...item,
+      y: item.y + 1
+    }));
+
+    // Check for loot collection
+    newState.loot.forEach((item: any, index: number) => {
+      if (item.y === GAME_HEIGHT - 1 && item.x === newState.playerPos) {
+        newState.score += 50; // Bonus points for loot
+        newState.loot.splice(index, 1);
+      }
+    });
+
+    // Check for game over
+    newState.meteorites.forEach((meteor: any) => {
+      if (meteor.y >= GAME_HEIGHT - 1 && meteor.x === newState.playerPos) {
+        newState.gameOver = true;
+      }
+    });
+
+    // Remove meteorites that have passed the bottom
+    newState.meteorites = newState.meteorites.filter((meteor: any) => meteor.y < GAME_HEIGHT);
+    newState.loot = newState.loot.filter((item: any) => item.y < GAME_HEIGHT);
+
+    return newState;
+  };
+  
+  // Game loop for space shooter
+  const runSpaceShooterGameLoop = () => {
+    setGameState((prevState: SpaceShooterState | null) => {
+      if (!prevState) return prevState;
+      const newState = updateSpaceShooter(prevState, '');
+      // Update terminal output with the new game state
+      setOutput(prev => {
+        const newOutput = [...prev];
+        // Replace the last GAME_HEIGHT + 2 lines (game grid + score + possible game over message)
+        const gameLines = renderSpaceShooter(newState).split('\n').length;
+        return [...newOutput.slice(0, -gameLines), ...renderSpaceShooter(newState).split('\n')];
+      });
+      return newState;
+    });
   };
 
   const executeCommand = async (cmd: string) => {
@@ -151,11 +313,38 @@ URL: ${repo.url}`);
 Hi, I'm George Yakoub! 👋
 I am a developer and technologist with a passion for creating elegant solutions and building innovative products.
 Check out my work on GitHub: https://github.com/6ogo/`);
-    } else if (command === 'game') {
+    } else if (command === 'game help' || command === 'game') {
+      await typeWriter(`
+Available games:
+  game runner      - Play the runner game
+  game spaceshooter - Play the space shooter game
+  game guesser     - Play the number guessing game
+  game help        - Show this help message
+`);
+    } else if (command === 'game runner') {
       await typeWriter('Starting runner game...');
       onStartGame();
-    } else if (command === 'guess') {
+    } else if (command === 'game spaceshooter') {
       setGameActive(true);
+      setCurrentGame('spaceshooter');
+      setGameState(initializeSpaceShooter());
+      await typeWriter('Starting space shooter game...');
+      await typeWriter('Use A/D to move, SPACE to shoot, Q to quit.');
+      await typeWriter(renderSpaceShooter(initializeSpaceShooter()));
+      
+      // Start the game loop
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current);
+      }
+      gameLoopRef.current = window.setInterval(runSpaceShooterGameLoop, 200);
+      
+      // Set focus to the input field for keyboard controls
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    } else if (command === 'game guesser') {
+      setGameActive(true);
+      setCurrentGame('guesser');
       setTargetNumber(Math.floor(Math.random() * 10) + 1);
       setAttempts(0);
       await typeWriter('Guess a number between 1 and 10. Type your guess or "quit" to exit.');
@@ -171,6 +360,60 @@ Check out my work on GitHub: https://github.com/6ogo/`);
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent) => {
+    // Handle space shooter game controls directly from keyboard input
+    if (gameActive && currentGame === 'spaceshooter' && gameState) {
+      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setGameState(prevState => {
+          if (!prevState) return prevState;
+          const newState = updateSpaceShooter(prevState, 'a');
+          setOutput(prev => {
+            const newOutput = [...prev];
+            const gameLines = renderSpaceShooter(newState).split('\n').length;
+            return [...newOutput.slice(0, -gameLines), ...renderSpaceShooter(newState).split('\n')];
+          });
+          return newState;
+        });
+        return;
+      } else if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        setGameState(prevState => {
+          if (!prevState) return prevState;
+          const newState = updateSpaceShooter(prevState, 'd');
+          setOutput(prev => {
+            const newOutput = [...prev];
+            const gameLines = renderSpaceShooter(newState).split('\n').length;
+            return [...newOutput.slice(0, -gameLines), ...renderSpaceShooter(newState).split('\n')];
+          });
+          return newState;
+        });
+        return;
+      } else if (e.key === ' ' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setGameState(prevState => {
+          if (!prevState) return prevState;
+          const newState = updateSpaceShooter(prevState, ' ');
+          setOutput(prev => {
+            const newOutput = [...prev];
+            const gameLines = renderSpaceShooter(newState).split('\n').length;
+            return [...newOutput.slice(0, -gameLines), ...renderSpaceShooter(newState).split('\n')];
+          });
+          return newState;
+        });
+        return;
+      } else if (e.key === 'q' || e.key === 'Q' || e.key === 'Escape') {
+        // Exit the game
+        setGameActive(false);
+        setCurrentGame('');
+        if (gameLoopRef.current) {
+          clearInterval(gameLoopRef.current);
+          gameLoopRef.current = null;
+        }
+        setOutput(prev => [...prev, 'Game ended.']);
+        setInput('');
+        return;
+      }
+    }
     if (e.key === 'Enter') {
       const cmd = input.trim();
       const newOutput = [...output, `yakou8@github:${currentPath}$ ${input}`];
@@ -178,10 +421,18 @@ Check out my work on GitHub: https://github.com/6ogo/`);
       setInput('');
 
       if (gameActive) {
-        if (cmd.toLowerCase() === 'quit') {
+        if (cmd.toLowerCase() === 'quit' || cmd.toLowerCase() === 'q') {
           setGameActive(false);
+          setCurrentGame('');
+          
+          // Clear game loop if it's running
+          if (gameLoopRef.current) {
+            clearInterval(gameLoopRef.current);
+            gameLoopRef.current = null;
+          }
+          
           await typeWriter('Game ended.');
-        } else {
+        } else if (currentGame === 'guesser') {
           const guess = parseInt(cmd);
           if (isNaN(guess)) {
             await typeWriter('Please enter a number or "quit".');
@@ -190,11 +441,18 @@ Check out my work on GitHub: https://github.com/6ogo/`);
             if (guess === targetNumber) {
               await typeWriter(`Correct! You guessed it in ${attempts + 1} attempts.`);
               setGameActive(false);
+              setCurrentGame('');
             } else if (guess < targetNumber) {
               await typeWriter('Too low. Try again.');
             } else {
               await typeWriter('Too high. Try again.');
             }
+          }
+        } else if (currentGame === 'spaceshooter') {
+          // Only handle 'q' command in the terminal input
+          // All other controls are handled by the keydown event listener
+          if (cmd !== 'q' && cmd !== '') {
+            await typeWriter('Use A/D to move, SPACE to shoot, Q to quit.');
           }
         }
       } else {
@@ -229,6 +487,15 @@ Check out my work on GitHub: https://github.com/6ogo/`);
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
   }, [output]);
+  
+  // Clean up game loop on unmount
+  useEffect(() => {
+    return () => {
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const initTerminal = async () => {
@@ -242,9 +509,67 @@ Check out my work on GitHub: https://github.com/6ogo/`);
         inputRef.current.focus();
       }
     };
+    
+    // Handle keyboard events for the entire document to make game controls more responsive
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (gameActive && currentGame === 'spaceshooter' && gameState) {
+        if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          setGameState(prevState => {
+            if (!prevState) return prevState;
+            const newState = updateSpaceShooter(prevState, 'a');
+            setOutput(prev => {
+              const newOutput = [...prev];
+              const gameLines = renderSpaceShooter(newState).split('\n').length;
+              return [...newOutput.slice(0, -gameLines), ...renderSpaceShooter(newState).split('\n')];
+            });
+            return newState;
+          });
+        } else if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          setGameState(prevState => {
+            if (!prevState) return prevState;
+            const newState = updateSpaceShooter(prevState, 'd');
+            setOutput(prev => {
+              const newOutput = [...prev];
+              const gameLines = renderSpaceShooter(newState).split('\n').length;
+              return [...newOutput.slice(0, -gameLines), ...renderSpaceShooter(newState).split('\n')];
+            });
+            return newState;
+          });
+        } else if (e.key === ' ' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          setGameState(prevState => {
+            if (!prevState) return prevState;
+            const newState = updateSpaceShooter(prevState, ' ');
+            setOutput(prev => {
+              const newOutput = [...prev];
+              const gameLines = renderSpaceShooter(newState).split('\n').length;
+              return [...newOutput.slice(0, -gameLines), ...renderSpaceShooter(newState).split('\n')];
+            });
+            return newState;
+          });
+        } else if (e.key === 'q' || e.key === 'Q' || e.key === 'Escape') {
+          // Exit the game
+          setGameActive(false);
+          setCurrentGame('');
+          if (gameLoopRef.current) {
+            clearInterval(gameLoopRef.current);
+            gameLoopRef.current = null;
+          }
+          setOutput(prev => [...prev, 'Game ended.']);
+        }
+      }
+    };
+    
     document.addEventListener('click', handleGlobalClick);
-    return () => document.removeEventListener('click', handleGlobalClick);
-  }, []);
+    document.addEventListener('keydown', handleKeyPress);
+    
+    return () => {
+      document.removeEventListener('click', handleGlobalClick);
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [gameActive, currentGame, gameState]);
 
   return (
     <div 
