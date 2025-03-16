@@ -77,18 +77,40 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         setLoading(true);
 
         // Fetch IP address
-        const ipResponse = await fetch('https://api.ipify.org?format=json');
-        if (!ipResponse.ok) throw new Error('Failed to fetch IP address');
-        const ipData = await ipResponse.json();
-        const ipAddress = ipData.ip;
+        let ipAddress = '';
+        try {
+          const ipResponse = await fetch('https://api.ipify.org?format=json');
+          if (!ipResponse.ok) throw new Error('Failed to fetch IP address');
+          const ipData = await ipResponse.json();
+          ipAddress = ipData.ip;
+        } catch (ipError) {
+          console.error('Error fetching IP:', ipError);
+          // Use a fallback IP if needed
+          ipAddress = '8.8.8.8'; // Google DNS as fallback
+        }
 
         // Fetch location data
-        const response = await fetch(
-          `https://api.api-ninjas.com/v1/iplookup?address=${ipAddress}`,
-          { headers: { 'X-Api-Key': API_NINJAS_KEY } }
-        );
-        if (!response.ok) throw new Error('Failed to fetch location data');
-        const data = await response.json();
+        let data;
+        try {
+          const response = await fetch(
+            `https://api.api-ninjas.com/v1/iplookup?address=${ipAddress}`,
+            { headers: { 'X-Api-Key': API_NINJAS_KEY } }
+          );
+          if (!response.ok) throw new Error('Failed to fetch location data');
+          data = await response.json();
+        } catch (locationError) {
+          console.error('Error fetching location:', locationError);
+          // Use fallback location data
+          data = {
+            country: 'Sweden',
+            region: 'Stockholm',
+            city: '',
+            timezone: 'Europe/Stockholm',
+            lat: 59.33,
+            lon: 18.06,
+            country_code: 'SE'
+          };
+        }
 
         // Determine continent code
         let continentCode = '';
@@ -121,7 +143,30 @@ export const VisualizationsView: React.FC = (): ReactElement => {
 
         setLoading(false);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Error in fetchAllData:', err);
+        setError('Error loading data: ' + (err instanceof Error ? err.message : 'An error occurred') + '. Using fallback data where available.');
+        
+        // Set fallback data
+        const fallbackGeoData: GeoData = {
+          country: 'Sweden',
+          region: 'Stockholm',
+          city: 'Stockholm',
+          timezone: 'Europe/Stockholm',
+          latitude: 59.33,
+          longitude: 18.06,
+          countryCode: 'SE',
+          continentCode: 'EU'
+        };
+        
+        setGeoData(fallbackGeoData);
+        setWeatherData(generateMockWeather(fallbackGeoData));
+        setEconomicData(generateMockEconomicData(fallbackGeoData));
+        setDemographicData(generateMockDemographicData(fallbackGeoData));
+        setGeneralFacts(generateMockGeneralFacts(fallbackGeoData));
+        
+        // Try to fetch quote at least
+        fetchQuote().catch(console.error);
+        
         setLoading(false);
       }
     };
