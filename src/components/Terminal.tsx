@@ -91,20 +91,11 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
     isTypingRef.current = false;
   };
   
+  // Store terminal state before game starts
+  const [terminalStateBeforeGame, setTerminalStateBeforeGame] = useState<string[]>([]);
+  
   // Initialize space shooter game state
   const initializeSpaceShooter = () => {
-    // Start the game loop when initializing
-    if (gameLoopRef.current) {
-      clearInterval(gameLoopRef.current);
-    }
-    
-    gameLoopRef.current = window.setInterval(() => {
-      setGameState(prevState => {
-        if (!prevState) return prevState;
-        return updateSpaceShooter(prevState, '');
-      });
-    }, 200); // Update every 200ms
-    
     return {
       playerPos: Math.floor(GAME_WIDTH / 2), // Player starts in the middle
       meteorites: [],
@@ -341,11 +332,21 @@ Available games:
       await typeWriter('Starting runner game...');
       onStartGame();
     } else if (command === 'game spaceshooter') {
+      // Save the current terminal state before starting the game
+      const currentTerminalState = [...output];
+      
+      // Clear the terminal and show only game instructions
+      setOutput([]);
       await typeWriter('Starting space shooter game...');
       await typeWriter('Use A/D or arrow keys to move, SPACE to shoot, Q/ESC to quit.');
+      
+      // Start the game
       setGameActive(true);
       setCurrentGame('spaceshooter');
       setGameState(initializeSpaceShooter());
+      
+      // Store the terminal state for restoration when game ends
+      setTerminalStateBeforeGame(currentTerminalState);
       
       // Start the game loop
       if (gameLoopRef.current) {
@@ -406,6 +407,9 @@ Available games:
           clearInterval(gameLoopRef.current);
           gameLoopRef.current = null;
         }
+        
+        // Restore terminal state from before the game started
+        setOutput(terminalStateBeforeGame);
         setOutput(prev => [...prev, 'Game ended.']);
         setInput('');
         return;
@@ -495,8 +499,7 @@ Available games:
         // Count how many lines the game takes up
         let gameEndIndex = gameStartIndex;
         while (gameEndIndex < output.length && 
-              (output[gameEndIndex].includes('SPACE SHOOTER') || 
-               !output[gameEndIndex].includes('yakou8@github'))) {
+              !output[gameEndIndex].includes('yakou8@github')) {
           gameEndIndex++;
         }
         
@@ -569,7 +572,11 @@ Available games:
             clearInterval(gameLoopRef.current);
             gameLoopRef.current = null;
           }
+          
+          // Restore terminal state from before the game started
+          setOutput(terminalStateBeforeGame);
           setOutput(prev => [...prev, 'Game ended.']);
+          
           // Focus back on input
           if (inputRef.current) {
             inputRef.current.focus();

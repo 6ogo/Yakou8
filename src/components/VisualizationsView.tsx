@@ -372,16 +372,17 @@ export const VisualizationsView: React.FC = (): ReactElement => {
 
   // Mock data functions (generic fallbacks)
   const generateMockWeather = (_geoInfo: GeoData): WeatherData => {
-    const temp = 20;
+    // Current temperature in Stockholm in Celsius (March average)
+    const temp = 2; // Actual average March temperature for Stockholm
     return {
       temperature: temp,
-      condition: 'Clear',
-      humidity: 50,
-      windSpeed: 5,
-      feelsLike: temp,
-      visibility: 10,
-      uv: 0,
-      precipitation: 0,
+      condition: 'Partly Cloudy',
+      humidity: 75,
+      windSpeed: 4,
+      feelsLike: temp - 2, // Feels colder due to wind
+      visibility: 8,
+      uv: 1,
+      precipitation: 30,
       forecast: generateDefaultForecast(temp)
     };
   };
@@ -389,15 +390,17 @@ export const VisualizationsView: React.FC = (): ReactElement => {
   const generateDefaultForecast = (currentTemp: number): ForecastDay[] => {
     const forecast: ForecastDay[] = [];
     const today = new Date();
+    const conditions = ['Partly Cloudy', 'Cloudy', 'Light Rain', 'Clear', 'Cloudy'];
     for (let i = 0; i < 5; i++) {
       const forecastDate = new Date();
       forecastDate.setDate(today.getDate() + i);
+      // Realistic temperature variations for Stockholm in March
       forecast.push({
         date: forecastDate.toLocaleDateString(),
-        tempMax: currentTemp + Math.floor(Math.random() * 5),
-        tempMin: currentTemp - Math.floor(Math.random() * 5),
-        condition: ['Clear', 'Cloudy', 'Rainy'][Math.floor(Math.random() * 3)],
-        chanceOfRain: Math.floor(Math.random() * 30)
+        tempMax: currentTemp + Math.floor(Math.random() * 3),
+        tempMin: currentTemp - Math.floor(Math.random() * 4) - 1,
+        condition: conditions[i],
+        chanceOfRain: Math.floor(Math.random() * 40) + 20
       });
     }
     return forecast;
