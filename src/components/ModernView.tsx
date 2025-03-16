@@ -11,11 +11,24 @@ interface ModernViewProps {
 export const ModernView: React.FC<ModernViewProps> = ({ repositories, loading, error }) => {
   const [filter, setFilter] = useState('');
   
-  const filteredRepos = repositories.filter(repo => 
-    repo.name.toLowerCase().includes(filter.toLowerCase()) ||
-    repo.language?.toLowerCase().includes(filter.toLowerCase()) ||
-    repo.description?.toLowerCase().includes(filter.toLowerCase())
-  );
+  // Sort repositories by latest commit date (newest first) and then filter
+  const filteredRepos = repositories
+    .sort((a, b) => {
+      // If both have commit dates, sort by date (newest first)
+      if (a.latestCommitDate && b.latestCommitDate) {
+        return new Date(b.latestCommitDate).getTime() - new Date(a.latestCommitDate).getTime();
+      }
+      // If only one has a commit date, prioritize the one with a date
+      else if (a.latestCommitDate) return -1;
+      else if (b.latestCommitDate) return 1;
+      // If neither has a commit date, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    })
+    .filter(repo => 
+      repo.name.toLowerCase().includes(filter.toLowerCase()) ||
+      repo.language?.toLowerCase().includes(filter.toLowerCase()) ||
+      repo.description?.toLowerCase().includes(filter.toLowerCase())
+    );
 
   if (loading) {
     return (
@@ -88,9 +101,21 @@ export const ModernView: React.FC<ModernViewProps> = ({ repositories, loading, e
                 </div>
               </div>
 
-              <p className="text-gray-400 mb-4 h-12 line-clamp-2">
-                {repo.description || 'No description available'}
-              </p>
+              {/* Display commit date and title instead of description */}
+              {repo.latestCommitDate ? (
+                <div className="mb-4">
+                  <p className="text-gray-300 text-sm mb-1">
+                    <span className="font-semibold">Latest commit:</span> {new Date(repo.latestCommitDate).toLocaleDateString()}
+                  </p>
+                  <p className="text-gray-400 h-12 line-clamp-2">
+                    {repo.latestCommitTitle || 'No commit message'}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-gray-400 mb-4 h-12 line-clamp-2">
+                  {repo.description || 'No description available'}
+                </p>
+              )}
 
               {repo.language && (
                 <div className="mb-4">

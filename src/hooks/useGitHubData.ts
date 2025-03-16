@@ -9,11 +9,12 @@ export function useGitHubData() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('https://api.github.com/users/6ogo/repos');
-        if (!response.ok) throw new Error('Failed to fetch repositories');
+        // Fetch repositories
+        const reposResponse = await fetch('https://api.github.com/users/6ogo/repos');
+        if (!reposResponse.ok) throw new Error('Failed to fetch repositories');
         
-        const data = await response.json();
-        const repos: Repository[] = data.map((repo: any) => ({
+        const reposData = await reposResponse.json();
+        const reposWithoutCommits: Repository[] = reposData.map((repo: any) => ({
           name: repo.name,
           description: repo.description,
           url: repo.html_url,
@@ -23,7 +24,33 @@ export function useGitHubData() {
           forks: repo.forks_count,
         }));
         
-        setRepositories(repos);
+        // Fetch latest commit for each repository
+        const reposWithCommits = await Promise.all(
+          reposWithoutCommits.map(async (repo) => {
+            try {
+              const commitsResponse = await fetch(`https://api.github.com/repos/6ogo/${repo.name}/commits?per_page=1`);
+              
+              if (commitsResponse.ok) {
+                const commitsData = await commitsResponse.json();
+                
+                if (commitsData && commitsData.length > 0) {
+                  const latestCommit = commitsData[0];
+                  return {
+                    ...repo,
+                    latestCommitDate: new Date(latestCommit.commit.author.date),
+                    latestCommitTitle: latestCommit.commit.message.split('\n')[0], // Get first line of commit message
+                  };
+                }
+              }
+              return repo; // Return original repo if no commits found
+            } catch (commitErr) {
+              console.error(`Error fetching commits for ${repo.name}:`, commitErr);
+              return repo; // Return original repo if error occurs
+            }
+          })
+        );
+        
+        setRepositories(reposWithCommits);
         setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');

@@ -6,4 +6,6 @@ export interface Repository {
   language: string | null;
   stars: number;
   forks: number;
+  latestCommitDate?: Date;
+  latestCommitTitle?: string;
 }
