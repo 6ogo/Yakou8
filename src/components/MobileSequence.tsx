@@ -70,7 +70,7 @@ export const MobileSequence: React.FC<MobileSequenceProps> = ({ onComplete }) =>
   }, [stage, onComplete]);
 
   return (
-    <div className="min-h-screen bg-black text-green-500 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-black text-green-500 flex flex-col items-center justify-start pt-32 p-4">
       <div className="grain" />
       
       {stage === 'loading' && (
@@ -102,9 +102,11 @@ export const MobileSequence: React.FC<MobileSequenceProps> = ({ onComplete }) =>
           </h2>
           
           {showScrollPrompt && (
-            <div className="animate-pulse flex flex-col items-center">
+            <div className="flex flex-col items-center justify-center">
               <p className="text-lg mb-4">Scroll Down to Continue</p>
-              <ChevronDown size={32} className="text-green-400 animate-bounce" />
+              <div className="animate-bounce">
+                <ChevronDown size={32} className="text-green-400" />
+              </div>
             </div>
           )}
         </div>

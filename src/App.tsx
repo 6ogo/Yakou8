@@ -16,7 +16,10 @@ function App() {
   const [showViewHint, setShowViewHint] = useState(false);
   const [showArrowOnly, setShowArrowOnly] = useState(false);
   const [hasClickedViewButton, setHasClickedViewButton] = useState(false);
-  const [mobileSequenceComplete, setMobileSequenceComplete] = useState(false);
+  const [mobileSequenceComplete, setMobileSequenceComplete] = useState(() => {
+    // Check if user has already seen the sequence in this session
+    return sessionStorage.getItem('mobileSequenceComplete') === 'true';
+  });
   const [terminalFullscreen, setTerminalFullscreen] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
   const { repositories, loading, error } = useGitHubData();
@@ -108,7 +111,12 @@ function App() {
         
         {/* Mobile Loading & Hacking Sequence */}
         {!mobileSequenceComplete && (
-          <MobileSequence onComplete={() => setMobileSequenceComplete(true)} />
+          <MobileSequence onComplete={() => {
+            setMobileSequenceComplete(true);
+            // Save to sessionStorage to prevent showing again on refresh
+            // but will show again if user closes and reopens the page
+            sessionStorage.setItem('mobileSequenceComplete', 'true');
+          }} />
         )}
         
         {/* Mobile Content (Sequential Vertical Layout) */}
@@ -137,13 +145,8 @@ function App() {
               <ArrowRight size={20} className="transform rotate-90 mx-auto" />
             </div>
           </section>
-
-          {/* Projects Section */}
-          <section className="min-h-screen pt-20 pb-32">
-            <ModernView repositories={repositories} loading={loading} error={error} />
-          </section>
           
-          {/* Terminal Section */}
+          {/* Terminal Section - Moved above Projects */}
           {terminalFullscreen ? (
             <div className="fixed inset-0 z-50 bg-black">
               <button 
@@ -160,7 +163,7 @@ function App() {
               />
             </div>
           ) : (
-            <section className="min-h-screen pt-20 pb-32">
+            <section className="min-h-screen py-20">
               <div className="container mx-auto px-4">
                 <h2 className="text-3xl font-bold mb-6 text-center">Terminal Experience</h2>
                 <p className="text-center mb-6">Tap below to enter fullscreen terminal:</p>
@@ -186,10 +189,10 @@ function App() {
               </div>
             </section>
           )}
-          
-          {/* Visualizations Section */}
+
+          {/* Projects Section - Now below terminal */}
           <section className="min-h-screen pt-20 pb-32">
-            <VisualizationsView />
+            <ModernView repositories={repositories} loading={loading} error={error} />
           </section>
         </div>
         

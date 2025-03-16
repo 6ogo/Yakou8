@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Repository } from '../types';
 
-// ASCII art collection
-const ASCII_LOGO = `
+// Responsive ASCII art collection
+const ASCII_LOGO_LARGE = `
 ---      ---    ------    ----    ----   --------   ----    ---- -----------  
  ***    ***    ********   ****   ****   **********  ****    **** **************  
   ---  ---    ----------  ----  ----   ----    ---- ----    ---- ----       --- 
@@ -11,7 +11,17 @@ const ASCII_LOGO = `
     ****     ************ ****  ****   ****    **** ************ ****       *** 
     ----     ----    ---- ----   ----   ----------  ------------ --------------  
     ****     ****    **** ****    ****   ********   ************ ************
-`;
+                                      `;
+
+// Smaller logo for mobile screens
+const ASCII_LOGO_SMALL = `
+__     __      _  ______  _    _ ____  
+\ \   / //\   | |/ / __ \| |  | |  _ \ 
+ \ \_/ //  \  | ' / |  | | |  | | |_) |
+  \   // /\ \ |  <| |  | | |  | |  _ < 
+   | |/ ____ \| . \ |__| | |__| | |_) |
+   |_/_/    \_\_|\_\____/ \____/|____/ 
+                                      `;
 
 const ASCII_CAT = `
   /\\_/\\  
@@ -32,14 +42,14 @@ const ASCII_COFFEE = `
 `;
 
 const HACKER_ART = `
-    _    _            _    _             
-   | |  | |          | |  (_)            
-   | |__| | __ _  ___| | ___ _ __   __ _ 
-   |  __  |/ _\` |/ __| |/ / | '_ \\ / _\` |
-   | |  | | (_| | (__|   <| | | | | (_| |
-   |_|  |_|\\__,_|\\___|_|\\_\\_|_| |_|\\__, |
-                                    __/ |
-                                   |___/ 
+ _    _            _    _             
+| |  | |          | |  (_)            
+| |__| | __ _  ___| | ___ _ __   __ _ 
+|  __  |/ _\` |/ __| |/ / | '_ \\ / _\` |
+| |  | | (_| | (__|   <| | | | | (_| |
+|_|  |_|\\__,_|\\___|_|\\_\\_|_| |_|\\__, |
+                                __/ |
+                               |___/ 
 `;
 
 const HELP_TEXT = `
@@ -90,6 +100,7 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
   const [targetNumber, setTargetNumber] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [gameOutput, setGameOutput] = useState<string[]>([]); // New state for game output
+  const [isMobile, setIsMobile] = useState(false);
 
   // Space shooter game state
   interface SpaceShooterState {
@@ -110,6 +121,18 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
   // Define type for adventure game command handler
   type AdventureCommandHandler = (cmd: string) => Promise<void>;
   const adventureCommandRef = useRef<AdventureCommandHandler | null>(null);
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Combined regular and tech fortunes
   const fortunes = [
@@ -810,7 +833,9 @@ Available games:
 
   useEffect(() => {
     const initTerminal = async () => {
-      await typeWriter(ASCII_LOGO);
+      // Use responsive ASCII art based on screen width
+      const logoToUse = isMobile ? ASCII_LOGO_SMALL : ASCII_LOGO_LARGE;
+      await typeWriter(logoToUse);
       await typeWriter('\n');
       await typeWriter('\nWelcome to Yakou8\'s page! Type "help" for available commands.');
     };
@@ -825,15 +850,15 @@ Available games:
       document.removeEventListener('click', handleGlobalClick);
       if (gameLoopRef.current) clearInterval(gameLoopRef.current);
     };
-  }, []);
+  }, [isMobile]);
 
   return (
     <div
       ref={terminalRef}
-      className="min-h-screen p-4 font-mono text-green-500 bg-black overflow-y-auto"
+      className="min-h-screen p-4 font-mono text-green-500 bg-black overflow-y-auto overflow-x-hidden"
       style={{ maxHeight: '100vh' }}
     >
-      <div className="whitespace-pre">
+      <div className="whitespace-pre-wrap break-words max-w-full">
         {output.map((line, i) => (
           <div key={i} className="leading-tight">{line}</div>
         ))}
