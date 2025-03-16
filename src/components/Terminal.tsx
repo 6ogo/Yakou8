@@ -584,6 +584,10 @@ URL: ${repo.url}`);
       await typeWriter("Nice try, but you're not root here!");
     } else if (command === 'clear') {
       setOutput([]);
+      // Scroll to top when clearing terminal
+      if (terminalRef.current) {
+        terminalRef.current.scrollTop = 0;
+      }
     } else if (command === 'info') {
       await typeWriter(`
 Hi, I'm George Yakoub! 👋
@@ -762,12 +766,22 @@ Available games:
       }
     } else if (e.key === 'ArrowUp') {
       if (!gameActive && commandHistory.length > 0) {
+        e.preventDefault(); // Prevent cursor from moving to beginning of input
         const newIndex = historyIndex === null ? commandHistory.length - 1 : Math.max(historyIndex - 1, 0);
         setHistoryIndex(newIndex);
         setInput(commandHistory[newIndex]);
+        
+        // Set cursor to end of input after a short delay
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.selectionStart = inputRef.current.value.length;
+            inputRef.current.selectionEnd = inputRef.current.value.length;
+          }
+        }, 0);
       }
     } else if (e.key === 'ArrowDown') {
       if (!gameActive && historyIndex !== null) {
+        e.preventDefault(); // Prevent cursor from moving to end of input
         if (historyIndex < commandHistory.length - 1) {
           const newIndex = historyIndex + 1;
           setHistoryIndex(newIndex);
@@ -776,6 +790,14 @@ Available games:
           setHistoryIndex(null);
           setInput('');
         }
+        
+        // Set cursor to end of input after a short delay
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.selectionStart = inputRef.current.value.length;
+            inputRef.current.selectionEnd = inputRef.current.value.length;
+          }
+        }, 0);
       }
     }
   };
