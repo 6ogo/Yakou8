@@ -69,12 +69,26 @@ export const VisualizationsView: React.FC = (): ReactElement => {
   const [activeTab, setActiveTab] = useState<'weather' | 'economy' | 'demographics' | 'facts'>('weather');
   const [quote, setQuote] = useState<{ quote: string; author: string; category: string } | null>(null);
 
+  // API key handling with additional checks
   const API_NINJAS_KEY = import.meta.env.VITE_API_NINJAS_KEY;
+  
+  // Check if API key is available
+  useEffect(() => {
+    if (!API_NINJAS_KEY) {
+      console.warn('API Ninjas key is not available in environment variables');
+      setError('API key is missing. Using fallback data.');
+    }
+  }, []);
 
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
+        
+        // Skip API calls if API key is missing
+        if (!API_NINJAS_KEY) {
+          throw new Error('API key is missing');
+        }
 
         // Fetch IP address
         let ipAddress = '';
@@ -92,14 +106,28 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         // Fetch location data
         let data;
         try {
+          console.log('Fetching IP location with API key length:', API_NINJAS_KEY.length);
+          
           const response = await fetch(
             `https://api.api-ninjas.com/v1/iplookup?address=${ipAddress}`,
-            { headers: { 'X-Api-Key': API_NINJAS_KEY } }
+            { 
+              headers: { 
+                'X-Api-Key': API_NINJAS_KEY,
+                'Content-Type': 'application/json'
+              }
+            }
           );
-          if (!response.ok) throw new Error('Failed to fetch location data');
-          data = await response.json();
           
-          // Log the response to see the actual data structure
+          // Log full response details for debugging
+          console.log('IP Lookup status:', response.status, response.statusText);
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            throw new Error(`Failed to fetch location data: ${response.status} ${response.statusText}`);
+          }
+          
+          data = await response.json();
           console.log('IP Lookup response:', data);
           
           // Check if we received valid data
@@ -168,22 +196,22 @@ export const VisualizationsView: React.FC = (): ReactElement => {
 
         setGeoData(fallbackGeoData);
         
-        // Try to fetch real data with fallback location instead of immediately using mock data
-        try {
-          await Promise.all([
-            fetchCountryData(fallbackGeoData).catch(() => setDemographicData(generateMockDemographicData(fallbackGeoData))),
-            fetchWeatherData(fallbackGeoData).catch(() => setWeatherData(generateMockWeather(fallbackGeoData))),
-            fetchGdpData(fallbackGeoData).catch(() => {}),
-            fetchQuote().catch(() => {})
-          ]);
-        } catch (fallbackError) {
-          console.error('Error fetching fallback data:', fallbackError);
-          // Now use mock data as a last resort
-          setWeatherData(generateMockWeather(fallbackGeoData));
-          setEconomicData(generateMockEconomicData(fallbackGeoData));
-          setDemographicData(generateMockDemographicData(fallbackGeoData));
-          setGeneralFacts(generateMockGeneralFacts(fallbackGeoData));
-        }
+        // Since API calls are failing, use mock data directly
+        console.log('Using mock data for all sections');
+        setWeatherData(generateMockWeather(fallbackGeoData));
+        setEconomicData(generateMockEconomicData(fallbackGeoData));
+        setDemographicData(generateMockDemographicData(fallbackGeoData));
+        setGeneralFacts(generateMockGeneralFacts(fallbackGeoData));
+        
+        // Still try to fetch quote with a different error handling approach
+        fetchQuote().catch(quoteError => {
+          console.error('Error fetching quote:', quoteError);
+          setQuote({
+            quote: "The best way to predict the future is to create it.",
+            author: "Peter Drucker",
+            category: "inspirational"
+          });
+        });
 
         setLoading(false);
       }
@@ -195,18 +223,31 @@ export const VisualizationsView: React.FC = (): ReactElement => {
   // Fetch country data and population data
   const fetchCountryData = async (geoInfo: GeoData) => {
     try {
+      // Skip if API key is missing
+      if (!API_NINJAS_KEY) {
+        throw new Error('API key is missing');
+      }
+      
       // Make sure we have a valid country name or code for the API
-      const countryParam = geoInfo.countryCode || encodeURIComponent(geoInfo.country);
+      // For country API, using the full country name tends to work better than the code
+      const countryParam = encodeURIComponent(geoInfo.country);
       console.log(`Fetching country data for: ${countryParam}`);
       
       // Fetch country data
       const countryResponse = await fetch(
         `https://api.api-ninjas.com/v1/country?name=${countryParam}`,
-        { headers: { 'X-Api-Key': API_NINJAS_KEY } }
+        { 
+          headers: { 
+            'X-Api-Key': API_NINJAS_KEY,
+            'Content-Type': 'application/json'
+          } 
+        }
       );
       
       if (!countryResponse.ok) {
+        const errorText = await countryResponse.text();
         console.error(`Country API error: ${countryResponse.status} ${countryResponse.statusText}`);
+        console.error('Error response:', errorText);
         throw new Error('Failed to fetch country data');
       }
       
@@ -449,13 +490,36 @@ export const VisualizationsView: React.FC = (): ReactElement => {
   // Fetch inspirational quote
   const fetchQuote = async () => {
     try {
+      // Skip if API key is missing
+      if (!API_NINJAS_KEY) {
+        throw new Error('API key is missing');
+      }
+      
+      console.log('Fetching inspirational quote');
       const quoteResponse = await fetch(
         'https://api.api-ninjas.com/v1/quotes?category=inspirational',
-        { headers: { 'X-Api-Key': API_NINJAS_KEY } }
+        { 
+          headers: { 
+            'X-Api-Key': API_NINJAS_KEY,
+            'Content-Type': 'application/json'
+          } 
+        }
       );
-      if (!quoteResponse.ok) throw new Error('Failed to fetch quote');
+      
+      if (!quoteResponse.ok) {
+        const errorText = await quoteResponse.text();
+        console.error(`Quote API error: ${quoteResponse.status} ${quoteResponse.statusText}`);
+        console.error('Error response:', errorText);
+        throw new Error('Failed to fetch quote');
+      }
+      
       const quoteData = await quoteResponse.json();
-      if (quoteData && quoteData.length > 0) setQuote(quoteData[0]);
+      if (quoteData && quoteData.length > 0) {
+        console.log('Quote data:', quoteData);
+        setQuote(quoteData[0]);
+      } else {
+        throw new Error('No quote data received');
+      }
     } catch (error) {
       console.error('Error fetching quote:', error);
       setQuote({
