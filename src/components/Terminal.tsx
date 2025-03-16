@@ -81,8 +81,8 @@ URL: ${repo.url}`);
       setOutput([]);
     } else if (command === 'info') {
       await typeWriter(`
-Hi, I'm Yakou8! 👋
-Full-stack developer passionate about creating elegant solutions.
+Hi, I'm George Yakoub! 👋
+I am a developer and technologist with a passion for creating elegant solutions and building innovative products.
 Check out my work on GitHub: https://github.com/6ogo/`);
     } else if (command === 'game') {
       await typeWriter(`
