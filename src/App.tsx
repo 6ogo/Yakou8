@@ -17,6 +17,7 @@ function App() {
   const [showArrowOnly, setShowArrowOnly] = useState(false);
   const [hasClickedViewButton, setHasClickedViewButton] = useState(false);
   const [mobileSequenceComplete, setMobileSequenceComplete] = useState(false);
+  const [terminalFullscreen, setTerminalFullscreen] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
   const { repositories, loading, error } = useGitHubData();
   
@@ -143,20 +144,48 @@ function App() {
           </section>
           
           {/* Terminal Section */}
-          <section className="min-h-screen pt-20 pb-32">
-            <div className="container mx-auto px-4">
-              <h2 className="text-3xl font-bold mb-6 text-center">Terminal Experience</h2>
-              <p className="text-center mb-6">Try interacting with the terminal below:</p>
-              <div className="h-[70vh] overflow-hidden rounded-lg border border-green-500/30">
-                <TerminalComponent 
-                  repositories={repositories} 
-                  loading={loading} 
-                  error={error}
-                  onStartGame={() => setIsGameActive(true)}
-                />
-              </div>
+          {terminalFullscreen ? (
+            <div className="fixed inset-0 z-50 bg-black">
+              <button 
+                onClick={() => setTerminalFullscreen(false)}
+                className="absolute top-4 right-4 bg-green-500 text-black p-2 rounded-full z-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+              <TerminalComponent 
+                repositories={repositories} 
+                loading={loading} 
+                error={error}
+                onStartGame={() => setIsGameActive(true)}
+              />
             </div>
-          </section>
+          ) : (
+            <section className="min-h-screen pt-20 pb-32">
+              <div className="container mx-auto px-4">
+                <h2 className="text-3xl font-bold mb-6 text-center">Terminal Experience</h2>
+                <p className="text-center mb-6">Tap below to enter fullscreen terminal:</p>
+                <div 
+                  className="h-[50vh] overflow-hidden rounded-lg border border-green-500/30 cursor-pointer relative"
+                  onClick={() => setTerminalFullscreen(true)}
+                >
+                  {/* Semi-transparent overlay to prevent interaction until fullscreen */}
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <button className="bg-green-500 text-black px-4 py-2 rounded-lg">
+                      Open Terminal
+                    </button>
+                  </div>
+                  <div className="opacity-50">
+                    <TerminalComponent 
+                      repositories={repositories} 
+                      loading={loading} 
+                      error={error}
+                      onStartGame={() => setIsGameActive(true)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
           
           {/* Visualizations Section */}
           <section className="min-h-screen pt-20 pb-32">

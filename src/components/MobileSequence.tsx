@@ -11,25 +11,21 @@ export const MobileSequence: React.FC<MobileSequenceProps> = ({ onComplete }) =>
   const [hackText, setHackText] = useState('');
   const [showScrollPrompt, setShowScrollPrompt] = useState(false);
 
-  // Sample hacking messages to display
+  // Shortened quick command messages
   const hackingMessages = [
-    "Initializing secure connection...",
-    "Accessing encrypted database...",
-    "Bypassing security protocols...",
-    "Scanning network endpoints...",
-    "Establishing secure channel...",
-    "Retrieving profile data...",
-    "Decrypting project information...",
+    "Initializing connection...",
+    "Loading profile data...",
+    "Decrypting projects...",
     "Access granted!"
   ];
 
-  // Simulated loading progress
+  // Faster loading progress
   useEffect(() => {
     if (stage !== 'loading') return;
 
     const timer = setInterval(() => {
       setLoadingProgress(prev => {
-        const next = prev + (Math.random() * 5);
+        const next = prev + (Math.random() * 10);
         if (next >= 100) {
           clearInterval(timer);
           setStage('hacking');
@@ -37,82 +33,62 @@ export const MobileSequence: React.FC<MobileSequenceProps> = ({ onComplete }) =>
         }
         return next;
       });
-    }, 100);
+    }, 50);
 
     return () => clearInterval(timer);
   }, [stage]);
 
-  // Hacking text effect
+  // Quick command execution effect
   useEffect(() => {
     if (stage !== 'hacking') return;
 
-    let currentMessageIndex = 0;
-    let currentCharIndex = 0;
-    let isErasing = false;
+    // Show each command quickly one after another
+    let commandIndex = 0;
     
-    const typeTimer = setInterval(() => {
-      const currentMessage = hackingMessages[currentMessageIndex];
-      
-      if (!isErasing) {
-        // Typing
-        if (currentCharIndex <= currentMessage.length) {
-          setHackText(currentMessage.substring(0, currentCharIndex));
-          currentCharIndex++;
-        } else {
-          // Once typed out, wait a bit before erasing
-          isErasing = true;
-          setTimeout(() => {
-            currentCharIndex = currentMessage.length;
-          }, 800);
-        }
+    const showNextCommand = () => {
+      if (commandIndex < hackingMessages.length) {
+        setHackText(prev => prev + '\n> ' + hackingMessages[commandIndex]);
+        commandIndex++;
+        
+        // Show next command after a short delay
+        setTimeout(showNextCommand, 300);
       } else {
-        // Erasing
-        if (currentCharIndex > 0) {
-          setHackText(currentMessage.substring(0, currentCharIndex));
-          currentCharIndex--;
-        } else {
-          // Move to next message
-          isErasing = false;
-          currentMessageIndex++;
-          
-          // If we've gone through all messages, end the sequence
-          if (currentMessageIndex >= hackingMessages.length) {
-            clearInterval(typeTimer);
-            setStage('complete');
-            setTimeout(() => {
-              setShowScrollPrompt(true);
-              // Notify parent component that sequence is complete
-              setTimeout(onComplete, 1000);
-            }, 1000);
-          }
-        }
+        // When all commands are shown, move to complete stage
+        setStage('complete');
+        setTimeout(() => {
+          setShowScrollPrompt(true);
+          // Notify parent component that sequence is complete
+          onComplete();
+        }, 500);
       }
-    }, 50);
+    };
+    
+    // Start showing commands
+    showNextCommand();
 
-    return () => clearInterval(typeTimer);
-  }, [stage]);
+    return () => {};
+  }, [stage, onComplete]);
 
   return (
     <div className="min-h-screen bg-black text-green-500 flex flex-col items-center justify-center p-4">
       <div className="grain" />
       
       {stage === 'loading' && (
-        <div className="w-full max-w-md">
-          <h2 className="text-xl mb-4 font-mono">Initializing system...</h2>
-          <div className="w-full bg-gray-900 rounded-full h-4 mb-6">
+        <div className="w-full max-w-md bg-black/40 p-6 rounded-lg border border-green-500/30">
+          <h2 className="text-xl mb-4 font-mono text-center">Initializing system...</h2>
+          <div className="w-full bg-gray-900 rounded-full h-4 mb-4">
             <div 
-              className="bg-green-500 h-4 rounded-full transition-all duration-300"
+              className="bg-green-500 h-4 rounded-full transition-all duration-200"
               style={{ width: `${loadingProgress}%` }}
             ></div>
           </div>
-          <p className="text-right font-mono">{Math.round(loadingProgress)}%</p>
+          <p className="text-center font-mono">{Math.round(loadingProgress)}%</p>
         </div>
       )}
       
       {stage === 'hacking' && (
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md bg-black/40 p-4 rounded-lg border border-green-500/30">
           <pre className="font-mono text-sm whitespace-pre-wrap">
-            <span className="text-green-500">&gt; </span>
             {hackText}
             <span className="animate-pulse">█</span>
           </pre>
@@ -120,15 +96,15 @@ export const MobileSequence: React.FC<MobileSequenceProps> = ({ onComplete }) =>
       )}
       
       {stage === 'complete' && (
-        <div className="text-center w-full max-w-md">
-          <h2 className="text-2xl mb-6 font-mono text-center">
+        <div className="text-center w-full max-w-md bg-black/40 p-6 rounded-lg border border-green-500/30">
+          <h2 className="text-2xl mb-6 font-mono text-center text-green-400">
             Connection Established
           </h2>
           
           {showScrollPrompt && (
-            <div className="mt-10 animate-bounce flex flex-col items-center">
+            <div className="animate-pulse flex flex-col items-center">
               <p className="text-lg mb-4">Scroll Down to Continue</p>
-              <ChevronDown size={32} />
+              <ChevronDown size={32} className="text-green-400 animate-bounce" />
             </div>
           )}
         </div>
