@@ -23,7 +23,8 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
     return savedHighScore ? parseInt(savedHighScore, 10) : 0;
   });
   const scoreRef = useRef(0);
-  // Define types for background elements
+
+  // Define types for background elements and notifications
   type MountainElement = { x: number; width: number; height: number };
   type HillElement = { x: number; width: number; height: number };
   type GroundElement = { x: number; width: number; height?: number };
@@ -40,16 +41,19 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
     frameCount: 0,
     gameSpeed: 5,
     backgroundLayers: [
-      { offset: 0, speed: 1, elements: [] as MountainElement[] },  // Far background mountains
-      { offset: 0, speed: 2, elements: [] as HillElement[] },      // Mid background hills
-      { offset: 0, speed: 5, elements: [] as GroundElement[] }     // Ground details
+      { offset: 0, speed: 1, elements: [] as MountainElement[] }, // Far background mountains
+      { offset: 0, speed: 2, elements: [] as HillElement[] },     // Mid background hills
+      { offset: 0, speed: 5, elements: [] as GroundElement[] }    // Ground details
     ],
     speedNotification: {
       active: false,
-      duration: 3,
+      duration: 0,
       message: '',
       opacity: 1.0
-    } as SpeedNotification
+    } as SpeedNotification,
+    spawnInterval: 100, // Initial frames between obstacle spawns
+    lastScoreForSpawnIncrease: 0, // Tracks the last score when spawn rate increased
+    maxGameSpeed: 15, // Speed cap
   });
 
   const resetGame = () => {
@@ -71,11 +75,14 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
         duration: 0,
         message: '',
         opacity: 1.0
-      }
+      },
+      spawnInterval: 100,
+      lastScoreForSpawnIncrease: 0,
+      maxGameSpeed: 15,
     };
   };
-  
-  // Update high score when game is over
+
+  // Update high score when game ends
   useEffect(() => {
     if (gameOver && score > highScore) {
       setHighScore(score);
@@ -84,7 +91,6 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
   }, [gameOver, score, highScore]);
 
   useEffect(() => {
-    // Prevent Terminal input focus when clicking the game canvas
     const preventTerminalInterference = (e: MouseEvent) => {
       if (e.target === canvasRef.current) {
         e.preventDefault();
@@ -92,7 +98,7 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
       }
     };
     document.addEventListener('click', preventTerminalInterference);
-    
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -103,7 +109,7 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
       x: 50,
       y: canvas.height - 40,
       width: 20,
-      height: 40
+      height: 40,
     };
 
     let isJumping = false;
@@ -114,19 +120,15 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
     let animationFrameId: number;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent game keys from affecting the terminal
       if (['ArrowUp', 'ArrowDown', 'w', 's', 'Escape'].includes(e.key)) {
         e.preventDefault();
         e.stopPropagation();
       }
-      
       if (e.key === 'Escape') {
         onQuit();
         return;
       }
-      
       if (gameOver) return;
-      
       if ((e.key === 'ArrowUp' || e.key === 'w') && !isJumping) {
         isJumping = true;
         jumpVelocity = jumpStrength;
@@ -139,14 +141,11 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      // Prevent game keys from affecting the terminal
       if (['ArrowUp', 'ArrowDown', 'w', 's', 'Escape'].includes(e.key)) {
         e.preventDefault();
         e.stopPropagation();
       }
-      
       if (gameOver) return;
-      
       if (e.key === 'ArrowDown' || e.key === 's') {
         isDucking = false;
         player.height = 40;
@@ -155,145 +154,108 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
     };
 
     const spawnObstacle = () => {
-      // Give it slightly more chance to spawn a low obstacle
       const type = Math.random() > 0.6 ? 'high' : 'low';
+      const obstacleWidth = type === 'high' ? 20 + Math.random() * 20 : 20; // High obstacles: 20-40 width
+      const obstacleHeight = type === 'low' ? 20 + Math.random() * 10 : 30; // Low obstacles: 20-30 height
       const obstacle: GameObject = {
         x: canvas.width,
-        y: type === 'high' ? canvas.height - 60 : canvas.height - 20, // Position low obstacles much lower so they can't be ducked under
-        width: 20,
-        height: type === 'high' ? 30 : 20, // High obstacles require duck, low obstacles require jump
+        y: type === 'high' ? canvas.height - 60 : canvas.height - obstacleHeight,
+        width: obstacleWidth,
+        height: obstacleHeight,
         speed: gameStateRef.current.gameSpeed,
-        type: type, // Store the type for easier reference
-        passed: false // Track if player has passed this obstacle
+        type,
+        passed: false,
       };
-      
       gameStateRef.current.obstacles.push(obstacle);
     };
 
     const checkCollision = (rect1: GameObject, rect2: GameObject) => {
-      return rect1.x < rect2.x + rect2.width &&
-             rect1.x + rect1.width > rect2.x &&
-             rect1.y < rect2.y + rect2.height &&
-             rect1.y + rect1.height > rect2.y;
+      return (
+        rect1.x < rect2.x + rect2.width &&
+        rect1.x + rect1.width > rect2.x &&
+        rect1.y < rect2.y + rect2.height &&
+        rect1.y + rect1.height > rect2.y
+      );
     };
 
-    // Background elements
     const groundY = canvas.height - 10;
-    
-    // Initialize background elements if empty
+
     const initBackgroundElements = () => {
-      // Far background - mountains
       if (gameStateRef.current.backgroundLayers[0].elements.length === 0) {
         for (let i = 0; i < 15; i++) {
           const width = 120 + Math.random() * 80;
           const height = 30 + Math.random() * 40;
-          gameStateRef.current.backgroundLayers[0].elements.push({
-            x: i * (width - 40),
-            width,
-            height
-          });
+          gameStateRef.current.backgroundLayers[0].elements.push({ x: i * (width - 40), width, height });
         }
       }
-      
-      // Mid background - hills
       if (gameStateRef.current.backgroundLayers[1].elements.length === 0) {
         for (let i = 0; i < 10; i++) {
           const width = 80 + Math.random() * 60;
           const height = 15 + Math.random() * 25;
-          gameStateRef.current.backgroundLayers[1].elements.push({
-            x: i * (width - 20),
-            width,
-            height
-          });
+          gameStateRef.current.backgroundLayers[1].elements.push({ x: i * (width - 20), width, height });
         }
       }
-      
-      // Ground details
       if (gameStateRef.current.backgroundLayers[2].elements.length === 0) {
         for (let i = 0; i < 30; i++) {
           const width = 20 + Math.random() * 30;
-          gameStateRef.current.backgroundLayers[2].elements.push({
-            x: i * 50,
-            width,
-            height: 2 // Add height property for consistency
-          });
+          gameStateRef.current.backgroundLayers[2].elements.push({ x: i * 50, width, height: 2 });
         }
       }
     };
-    
+
     initBackgroundElements();
 
     const gameLoop = () => {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Update and draw scrolling background layers
+
       if (!gameOver) {
-        // Update each background layer
         gameStateRef.current.backgroundLayers.forEach((layer, index) => {
           layer.offset = (layer.offset - (layer.speed * gameStateRef.current.gameSpeed / 5)) % canvas.width;
-          
-          // Draw the elements for this layer
-          if (index === 0) { // Far mountains
+          if (index === 0) {
             ctx.fillStyle = '#111122';
             layer.elements.forEach(mountain => {
-              const xPos = (mountain.x + layer.offset) % (canvas.width * 2) - mountain.width/2;
-              
-              // Draw only if visible
+              const xPos = (mountain.x + layer.offset) % (canvas.width * 2) - mountain.width / 2;
               if (xPos < canvas.width && xPos + mountain.width > 0) {
                 ctx.beginPath();
                 ctx.moveTo(xPos, groundY);
-                // Ensure height is defined with a fallback value
-                const mountainHeight = mountain.height || 30;
-                ctx.lineTo(xPos + mountain.width/2, groundY - mountainHeight);
+                // Use non-null assertion since we know mountain.height exists (we created it)
+                ctx.lineTo(xPos + mountain.width / 2, groundY - (mountain.height ?? 30));
                 ctx.lineTo(xPos + mountain.width, groundY);
                 ctx.fill();
               }
             });
-          } else if (index === 1) { // Mid hills
+          } else if (index === 1) {
             ctx.fillStyle = '#222233';
             layer.elements.forEach(hill => {
-              const xPos = (hill.x + layer.offset) % (canvas.width * 1.5) - hill.width/2;
-              
-              // Draw only if visible
+              const xPos = (hill.x + layer.offset) % (canvas.width * 1.5) - hill.width / 2;
               if (xPos < canvas.width && xPos + hill.width > 0) {
                 ctx.beginPath();
                 ctx.moveTo(xPos, groundY);
-                // Ensure height is defined with a fallback value
-                const hillHeight = hill.height || 15;
-                ctx.quadraticCurveTo(
-                  xPos + hill.width/2, groundY - hillHeight,
-                  xPos + hill.width, groundY
-                );
+                // Use non-null assertion since we know hill.height exists (we created it)
+                ctx.quadraticCurveTo(xPos + hill.width / 2, groundY - (hill.height ?? 15), xPos + hill.width, groundY);
                 ctx.fill();
               }
             });
-          } else if (index === 2) { // Ground details
+          } else if (index === 2) {
             ctx.fillStyle = '#333344';
             layer.elements.forEach(detail => {
-              const xPos = (detail.x + layer.offset) % (canvas.width * 1.2) - detail.width/2;
-              const detailHeight = detail.height || 2; // Use height if provided, or default to 2
-              
-              // Draw only if visible
+              const xPos = (detail.x + layer.offset) % (canvas.width * 1.2) - detail.width / 2;
               if (xPos < canvas.width && xPos + detail.width > 0) {
-                ctx.fillRect(xPos, groundY - detailHeight, detail.width, detailHeight);
+                ctx.fillRect(xPos, groundY - detail.height!, detail.width, detail.height!);
               }
             });
           }
         });
       }
-      
-      // Draw ground
+
       ctx.fillStyle = '#333355';
       ctx.fillRect(0, groundY, canvas.width, 10);
 
-      // Process player movement only if game is running
       if (!gameOver) {
-        // Update player
         if (isJumping) {
           player.y += jumpVelocity;
           jumpVelocity += gravity;
-
           if (player.y >= canvas.height - player.height) {
             player.y = canvas.height - player.height;
             isJumping = false;
@@ -302,138 +264,98 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
         }
       }
 
-      // Draw player
       ctx.fillStyle = '#00FF00';
       ctx.fillRect(player.x, player.y, player.width, player.height);
 
-      // Update and draw obstacles
       gameStateRef.current.obstacles = gameStateRef.current.obstacles.filter(obstacle => {
-        // Only move obstacles if game is running
         if (!gameOver) {
           obstacle.x -= obstacle.speed!;
-          
-          // Add score when passing an obstacle (when the obstacle passes the player)
           if (obstacle.x + obstacle.width < player.x && !obstacle.passed) {
             obstacle.passed = true;
             scoreRef.current += 1;
             setScore(scoreRef.current);
           }
         }
-        
-        // Draw obstacle with color based on type
-        if (obstacle.type === 'high') {
-          ctx.fillStyle = '#FF4444'; // Red for high obstacles (jump)
-        } else {
-          ctx.fillStyle = '#4444FF'; // Blue for low obstacles (duck)
-        }
+        ctx.fillStyle = obstacle.type === 'high' ? '#FF4444' : '#4444FF';
         ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-        
-        // Check collision only if game is running
         if (!gameOver) {
-          // Special collision handling for different obstacle types
-          if (obstacle.type === 'low') {
-            // For low obstacles, player must be jumping to avoid a collision
-            if (checkCollision(player, obstacle) && !isJumping) {
-              setGameOver(true);
-              gameStateRef.current.isRunning = false;
-              return false;
-            }
-          } else if (obstacle.type === 'high') {
-            // For high obstacles, player must be ducking to avoid a collision
-            if (checkCollision(player, obstacle) && !isDucking) {
-              setGameOver(true);
-              gameStateRef.current.isRunning = false;
-              return false;
-            }
+          if (obstacle.type === 'low' && checkCollision(player, obstacle) && !isJumping) {
+            setGameOver(true);
+            gameStateRef.current.isRunning = false;
+            return false;
+          } else if (obstacle.type === 'high' && checkCollision(player, obstacle) && !isDucking) {
+            setGameOver(true);
+            gameStateRef.current.isRunning = false;
+            return false;
           }
         }
-        
         return obstacle.x > -obstacle.width;
       });
 
-      // Only update game state if not game over
       if (!gameOver) {
-        // Spawn new obstacles
         gameStateRef.current.frameCount++;
-        if (gameStateRef.current.frameCount % 100 === 0) {
+        if (gameStateRef.current.frameCount % gameStateRef.current.spawnInterval === 0) {
           spawnObstacle();
-          // Score is now incremented inside spawnObstacle
         }
 
-        // Increase difficulty more aggressively
-        if (gameStateRef.current.frameCount % 300 === 0 && gameStateRef.current.frameCount > 0) {
-          gameStateRef.current.gameSpeed += 0.5;
-          
-          // Set the speed notification to be displayed for 180 frames (about 3 seconds at 60fps)
+        // Increase obstacle frequency every 10 points
+        if (scoreRef.current - gameStateRef.current.lastScoreForSpawnIncrease >= 10) {
+          gameStateRef.current.spawnInterval = Math.max(50, gameStateRef.current.spawnInterval - 10);
+          gameStateRef.current.lastScoreForSpawnIncrease = scoreRef.current;
           gameStateRef.current.speedNotification = {
             active: true,
             duration: 180,
-            message: `Speed increased to ${gameStateRef.current.gameSpeed.toFixed(1)}!`,
-            opacity: 1.0
+            message: 'Obstacle frequency increased!',
+            opacity: 1.0,
           };
+        }
+
+        // Increase speed by 1 every 500 frames, with a cap
+        if (gameStateRef.current.frameCount % 500 === 0 && gameStateRef.current.frameCount > 0) {
+          if (gameStateRef.current.gameSpeed < gameStateRef.current.maxGameSpeed) {
+            gameStateRef.current.gameSpeed += 1;
+            gameStateRef.current.speedNotification = {
+              active: true,
+              duration: 180,
+              message: `Speed increased to ${gameStateRef.current.gameSpeed.toFixed(1)}!`,
+              opacity: 1.0,
+            };
+          }
         }
       }
 
-      // Draw score and speed - use the ref value directly to ensure we see updates in real time
       ctx.fillStyle = '#00FF00';
       ctx.font = '20px monospace';
       ctx.fillText(`Score: ${scoreRef.current}`, 10, 30);
       ctx.fillText(`Speed: ${gameStateRef.current.gameSpeed.toFixed(1)}`, 10, 60);
-      
-      // Draw speed increase notification if active
+
       if (gameStateRef.current.speedNotification.active) {
-        // Create a pulsing effect by varying the opacity
         const notification = gameStateRef.current.speedNotification;
-        const pulseRate = Math.sin(gameStateRef.current.frameCount * 0.1) * 0.2 + 0.8; // Value between 0.6 and 1.0
-        
-        // Set up text style with glow effect
+        const pulseRate = Math.sin(gameStateRef.current.frameCount * 0.1) * 0.2 + 0.8;
         ctx.fillStyle = `rgba(255, 255, 0, ${notification.opacity * pulseRate})`;
         ctx.font = 'bold 28px Arial';
-        
-        // Add shadow/glow effect
         ctx.shadowColor = 'rgba(255, 255, 0, 0.5)';
         ctx.shadowBlur = 10;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
-        
-        // Center the text
-        const text = notification.message;
-        const textWidth = ctx.measureText(text).width;
+        const textWidth = ctx.measureText(notification.message).width;
         const textX = (canvas.width - textWidth) / 2;
-        const textY = 100; // Position it lower on the screen for better visibility
-        
-        // Draw text with outline for better visibility
+        const textY = 100;
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.lineWidth = 3;
-        ctx.strokeText(text, textX, textY);
-        ctx.fillText(text, textX, textY);
-        
-        // Reset shadow
+        ctx.strokeText(notification.message, textX, textY);
+        ctx.fillText(notification.message, textX, textY);
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        
-        // Decrease the duration counter
         notification.duration--;
-        
-        // Fade out during the last 60 frames (1 second)
         if (notification.duration < 60) {
           notification.opacity = notification.duration / 60;
         }
-        
-        // Deactivate notification when duration reaches zero
         if (notification.duration <= 0) {
           notification.active = false;
         }
       }
-      
-      // Also update the React state periodically for high score tracking
-      if (!gameOver && scoreRef.current !== score) {
-        setScore(scoreRef.current);
-      }
-      
-      // Draw controls info if game is running
+
       if (!gameOver) {
         ctx.font = '14px monospace';
         ctx.fillText('W/⬆️: Jump over low obstacles | S/⬇️: Duck under high obstacles | ESC: Quit', canvas.width / 2 - 240, 30);
@@ -442,7 +364,6 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
       animationFrameId = requestAnimationFrame(gameLoop);
     };
 
-    // Start game
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     animationFrameId = requestAnimationFrame(gameLoop);
@@ -457,12 +378,7 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black z-50">
-      <canvas
-        ref={canvasRef}
-        width={800}
-        height={200}
-        className="border border-green-500"
-      />
+      <canvas ref={canvasRef} width={800} height={200} className="border border-green-500" />
       {gameOver && (
         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80">
           <div className="text-center">
