@@ -529,6 +529,7 @@ Available games:
   useEffect(() => {
     const initTerminal = async () => {
       await typeWriter(ASCII_LOGO);
+      await typeWriter('\n');
       await typeWriter('\nWelcome to Yakou8\'s page! Type "help" for available commands.');
     };
     initTerminal();
