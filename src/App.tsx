@@ -12,6 +12,8 @@ function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('terminal');
   const [isGameActive, setIsGameActive] = useState(false);
   const [showViewHint, setShowViewHint] = useState(false);
+  const [showArrowOnly, setShowArrowOnly] = useState(false);
+  const [hasClickedViewButton, setHasClickedViewButton] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
   const { repositories, loading, error } = useGitHubData();
 
@@ -39,6 +41,11 @@ function App() {
   }, [viewMode]);
 
   const cycleViewMode = () => {
+    // Hide the hint when user clicks the button
+    setHasClickedViewButton(true);
+    setShowViewHint(false);
+    setShowArrowOnly(false);
+    
     setViewMode(prev => {
       if (prev === 'terminal') return 'projects';
       if (prev === 'projects') return 'visualizations';
@@ -63,14 +70,25 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Show view hint after 10 seconds
+  // Show view hint and then change to arrow only
   useEffect(() => {
-    const timer = setTimeout(() => {
+    // Don't show hint if user has already clicked the button
+    if (hasClickedViewButton) return;
+    
+    // Show the full hint after a short delay
+    const hintTimer = setTimeout(() => {
       setShowViewHint(true);
-    }, 10000);
+      
+      // Change to arrow only after 5 seconds
+      const arrowTimer = setTimeout(() => {
+        setShowArrowOnly(true);
+      }, 5000);
+      
+      return () => clearTimeout(arrowTimer);
+    }, 2000);
 
-    return () => clearTimeout(timer);
-  }, []);
+    return () => clearTimeout(hintTimer);
+  }, [hasClickedViewButton]);
 
   return (
     <div 
@@ -80,14 +98,20 @@ function App() {
     >
       <div className="grain" />
       <nav className="fixed top-0 right-0 p-4 z-50 flex items-center">
-        {showViewHint && (
-          <span className="mr-4 text-sm bg-green-500/20 px-4 py-2 rounded-full transition-opacity duration-300">
-            Click here to switch views <ArrowRight size={16} className="inline ml-1" />
-          </span>
+        {showViewHint && !hasClickedViewButton && (
+          <div className={`flex items-center ${showViewHint ? 'animate-slide-in' : ''}`}>
+            {!showArrowOnly ? (
+              <span className="mr-4 text-sm bg-green-500/20 px-4 py-2 rounded-full shadow-glow animate-pulse">
+                Click here to switch views <ArrowRight size={16} className="inline ml-1" />
+              </span>
+            ) : (
+              <ArrowRight size={24} className="mr-4 text-green-500 animate-bounce" />
+            )}
+          </div>
         )}
         <button
           onClick={cycleViewMode}
-          className="bg-green-500 text-black p-2 rounded-full hover:bg-green-400 transition-colors"
+          className="bg-green-500 text-black p-2 rounded-full hover:bg-green-400 transition-colors relative z-10"
           title="Switch view mode"
         >
           {getViewIcon()}
