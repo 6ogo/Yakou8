@@ -139,7 +139,7 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
     }
     output += `Score: ${state.score}\n`;
     if (state.gameOver) {
-      output += 'Game Over! Press Q or ESC to exit.\n';
+      output += 'Game Over! Press Q to quit or R to restart\n';
     } else {
       output += 'Controls: A/D or Arrow Keys to move, SPACE to shoot, Q/ESC to quit\n';
     }
@@ -152,11 +152,13 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
 
     let newState = { ...state };
 
-    // Player movement
+    // Player movement - only update position, don't move game elements
     if (action === 'a' && newState.playerPos > 0) {
       newState.playerPos -= 1;
+      return newState; // Return immediately to prevent meteorites from moving during player movement
     } else if (action === 'd' && newState.playerPos < GAME_WIDTH - 1) {
       newState.playerPos += 1;
+      return newState; // Return immediately to prevent meteorites from moving during player movement
     } else if (action === ' ') {
       newState.bullets.push({ x: newState.playerPos, y: GAME_HEIGHT - 2 });
     }
@@ -180,18 +182,23 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
       });
     }
 
-    // Check collisions between bullets and meteorites
-    newState.bullets.forEach(bullet => {
-      newState.meteorites.forEach((meteor, index) => {
+    // Improved collision detection - iterate backwards to safely remove items
+    for (let i = newState.bullets.length - 1; i >= 0; i--) {
+      const bullet = newState.bullets[i];
+      for (let j = newState.meteorites.length - 1; j >= 0; j--) {
+        const meteor = newState.meteorites[j];
         if (bullet.x === meteor.x && bullet.y === meteor.y) {
-          newState.meteorites.splice(index, 1);
+          // Remove both the bullet and meteorite
+          newState.bullets.splice(i, 1);
+          newState.meteorites.splice(j, 1);
           newState.score += 10;
           if (Math.random() < 0.3) {
             newState.loot.push({ x: meteor.x, y: meteor.y });
           }
+          break; // Break after finding a collision for this bullet
         }
-      });
-    });
+      }
+    }
 
     // Move loot downward
     newState.loot = newState.loot.map(item => ({
@@ -199,13 +206,14 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
       y: item.y + 1
     }));
 
-    // Check for loot collection
-    newState.loot.forEach((item, index) => {
+    // Improved loot collection - iterate backwards to safely remove items
+    for (let i = newState.loot.length - 1; i >= 0; i--) {
+      const item = newState.loot[i];
       if (item.y === GAME_HEIGHT - 1 && item.x === newState.playerPos) {
         newState.score += 50;
-        newState.loot.splice(index, 1);
+        newState.loot.splice(i, 1);
       }
-    });
+    }
 
     // Check for game over
     newState.meteorites.forEach(meteor => {
@@ -376,6 +384,12 @@ Available games:
         setGameOutput([]);
         setOutput(prev => [...prev, 'Game ended.']);
         setInput('');
+        return;
+      } else if ((e.key === 'r' || e.key === 'R') && gameState?.gameOver) {
+        // Restart the game if player is dead and presses R
+        const initialState = initializeSpaceShooter();
+        setGameState(initialState);
+        updateGameOutput(initialState);
         return;
       }
     }
