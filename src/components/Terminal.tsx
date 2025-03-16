@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Repository } from '../types';
 
+// ASCII art collection
 const ASCII_LOGO = `
 ---      ---    ------    ----    ----   --------   ----    ---- -----------  
  ***    ***    ********   ****   ****   **********  ****    **** **************  
@@ -10,6 +11,35 @@ const ASCII_LOGO = `
     ****     ************ ****  ****   ****    **** ************ ****       *** 
     ----     ----    ---- ----   ----   ----------  ------------ --------------  
     ****     ****    **** ****    ****   ********   ************ ************
+`;
+
+const ASCII_CAT = `
+  /\\_/\\  
+ ( o.o ) 
+  > ^ <  
+`;
+
+const ASCII_COFFEE = `
+      )  (
+     (   ) )
+      ) ( (
+    _______)_
+ .-'---------|  
+( C|/\\/\\/\\/\\/|
+ '-./\\/\\/\\/\\/|
+   '_________'
+    '-------'
+`;
+
+const HACKER_ART = `
+    _    _            _    _             
+   | |  | |          | |  (_)            
+   | |__| | __ _  ___| | ___ _ __   __ _ 
+   |  __  |/ _\` |/ __| |/ / | '_ \\ / _\` |
+   | |  | | (_| | (__|   <| | | | | (_| |
+   |_|  |_|\\__,_|\\___|_|\\_\\_|_| |_|\\__, |
+                                    __/ |
+                                   |___/ 
 `;
 
 const HELP_TEXT = `
@@ -29,6 +59,17 @@ Available commands:
   clear          - Clear terminal
   info           - Show information about me
   game           - Play games (type 'game help' for options)
+`;
+
+const FUN_HELP_TEXT = `
+Fun Commands:
+  cat            - Show an ASCII cat
+  coffee         - Brew a cup of virtual coffee
+  matrix         - Display a Matrix-style effect
+  hack TARGET    - Pretend to hack a target
+  adventure      - Play a text adventure game
+  joke           - Get a programming joke
+  cowsay         - Show an ASCII cow with a message
 `;
 
 interface TerminalProps {
@@ -66,13 +107,46 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
   const inputRef = useRef<HTMLInputElement>(null);
   const isTypingRef = useRef(false);
   const gameLoopRef = useRef<number | null>(null);
+  // Define type for adventure game command handler
+  type AdventureCommandHandler = (cmd: string) => Promise<void>;
+  const adventureCommandRef = useRef<AdventureCommandHandler | null>(null);
 
+  // Combined regular and tech fortunes
   const fortunes = [
     "You will have a great day!",
     "Beware of falling pianos.",
     "Your code will compile on the first try.",
     "You will meet someone special today.",
-    "Don't forget to save your work."
+    "Don't forget to save your work.",
+    // Tech fortunes
+    "You will encounter a strange bug. It was a feature all along.",
+    "A programmer who says their code will be done on time is lying.",
+    "Your next commit will break production. But nobody will notice.",
+    "You will spend 4 hours debugging code only to find a missing semicolon.",
+    "Updating your dependencies will either fix everything or break everything.",
+    "Your project will get 10,000 GitHub stars... in your dreams tonight.",
+    "You will try to refactor code and end up rewriting the entire codebase.",
+    "Your best code will be written at 3 AM and you won't remember how it works."
+  ];
+
+  // Programming jokes
+  const jokes = [
+    "Why do programmers prefer dark mode? Because light attracts bugs!",
+    "How many programmers does it take to change a light bulb? None, that's a hardware problem.",
+    "Why do Java developers wear glasses? Because they don't C#!",
+    "A SQL query walks into a bar, walks up to two tables and asks, 'Can I join you?'",
+    "Why was the JavaScript developer sad? Because he didn't know how to Node his feelings.",
+    "Why did the developer go broke? Because he used up all his cache!",
+    "Why do programmers always mix up Halloween and Christmas? Because Oct 31 == Dec 25!"
+  ];
+
+  // Command not found responses
+  const notFoundResponses = [
+    "Command not found: ",
+    "Hmm, I don't know '",
+    "Is that some fancy new technology I haven't learned yet? '",
+    "Error 404: Command '",
+    "I searched everywhere but couldn't find '"
   ];
 
   // Game constants
@@ -235,11 +309,219 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
     setGameOutput(newGameOutput);
   };
 
+  // NEW FUNCTIONS FOR TERMINAL ENHANCEMENTS
+
+  // Matrix-style text scrambling effect
+  const matrixEffect = async (iterations = 20, delay = 50) => {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()_+-=[]{}|;:,.<>?';
+    const text = "SYSTEM INFILTRATED. ACCESS GRANTED.";
+    let displayText = "";
+    
+    for (let i = 0; i < text.length; i++) {
+      displayText += "_";
+    }
+    
+    await typeWriter(displayText);
+    
+    for (let iteration = 0; iteration < iterations; iteration++) {
+      let newText = "";
+      for (let i = 0; i < text.length; i++) {
+        if (iteration === iterations - 1) {
+          newText += text[i];
+        } else if (Math.random() < (iteration / iterations)) {
+          newText += text[i];
+        } else {
+          newText += characters.charAt(Math.floor(Math.random() * characters.length));
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, delay));
+      setOutput(prev => [...prev.slice(0, -1), newText]);
+    }
+  };
+
+  // Simulate hacking progress with a simple ASCII progress bar
+  const simulateHacking = async (target = "mainframe") => {
+    const stages = [
+      `Targeting ${target}...`,
+      "Bypassing firewall...",
+      "Discovering vulnerabilities...",
+      "Exploiting security holes...",
+      "Uploading payload...",
+      "Establishing backdoor...",
+      "Covering tracks...",
+      `Access to ${target} granted!`
+    ];
+    
+    await typeWriter(HACKER_ART);
+    
+    for (const stage of stages) {
+      await typeWriter(stage);
+      const progressBarLength = 20;
+      for (let i = 0; i <= progressBarLength; i++) {
+        const progress = "=".repeat(i) + " ".repeat(progressBarLength - i);
+        const percentage = Math.floor((i / progressBarLength) * 100);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        setOutput(prev => [...prev.slice(0, -1), `[${progress}] ${percentage}%`]);
+      }
+    }
+    
+    await typeWriter("Hack successful! Just kidding, this is all for fun.");
+  };
+
+  // Define types for the text adventure game
+  type LocationId = 'start' | 'forest' | 'lab' | 'cave' | 'server' | 'vault';
+  
+  interface GameState {
+    location: LocationId;
+    inventory: string[];
+    visited: Set<LocationId>;
+  }
+  
+  interface LocationExit {
+    [direction: string]: LocationId;
+  }
+  
+  interface Location {
+    description: string;
+    exits: LocationExit;
+    items?: string[];
+  }
+  
+  interface GameLocations {
+    start: Location;
+    forest: Location;
+    lab: Location;
+    cave: Location;
+    server: Location;
+    vault: Location;
+  }
+
+  // Start text adventure game
+  const startTextAdventure = async () => {
+    let gameState: GameState = {
+      location: "start",
+      inventory: [],
+      visited: new Set<LocationId>()
+    };
+    
+    const locations: GameLocations = {
+      "start": {
+        description: "You're standing in a dimly lit terminal. There are paths to the 'north' and 'east'.",
+        exits: { "north": "forest", "east": "lab" }
+      },
+      "forest": {
+        description: "You're in a digital forest of ASCII trees. There's a path back 'south' and another leading 'west'.",
+        exits: { "south": "start", "west": "cave" },
+        items: ["stick"]
+      },
+      "lab": {
+        description: "You're in a computer lab with old terminals. There's a door back 'west' and stairs going 'down'.",
+        exits: { "west": "start", "down": "server" },
+        items: ["floppy disk"]
+      },
+      "cave": {
+        description: "You're in a dark cave with binary stalactites. Something glows in the corner. Exits are 'east' and 'down'.",
+        exits: { "east": "forest", "down": "vault" },
+        items: ["glowing orb"]
+      },
+      "server": {
+        description: "You're in a server room with blinking lights. There are stairs going 'up' and a tunnel 'north'.",
+        exits: { "up": "lab", "north": "vault" },
+        items: ["encryption key"]
+      },
+      "vault": {
+        description: "You're in a secure vault with a terminal in the center. Exits are 'up' to the cave and 'south' to the server room.",
+        exits: { "up": "cave", "south": "server" }
+      }
+    };
+    
+    await typeWriter("=== TEXT ADVENTURE: DIGITAL DUNGEON ===");
+    await typeWriter("Type directions to move (north, south, east, west, up, down)");
+    await typeWriter("Other commands: look, inventory, take [item], quit");
+    
+    await describeLocation(gameState.location);
+    
+    setGameActive(true);
+    setCurrentGame('adventure');
+    
+    async function describeLocation(locId: LocationId): Promise<void> {
+      const location = locations[locId];
+      let description = location.description;
+      
+      if (!gameState.visited.has(locId)) {
+        gameState.visited.add(locId);
+      }
+      
+      if (location.items && location.items.length > 0) {
+        description += ` You see: ${location.items.join(", ")}.`;
+      }
+      
+      await typeWriter(description);
+      
+      // Special case for the vault ending
+      if (locId === "vault" && gameState.inventory.includes("encryption key") && gameState.inventory.includes("glowing orb")) {
+        await typeWriter("The terminal activates as your encryption key and glowing orb resonate together!");
+        await typeWriter("Congratulations! You've completed the Digital Dungeon adventure!");
+        setGameActive(false);
+        setCurrentGame('');
+      }
+    }
+    
+    // Define the executeAdventureCommand function to handle adventure game commands
+    return async function executeAdventureCommand(cmd: string): Promise<void> {
+      const command = cmd.toLowerCase().trim();
+      
+      if (command === "quit" || command === "exit") {
+        await typeWriter("Exiting adventure mode.");
+        setGameActive(false);
+        setCurrentGame('');
+        return;
+      }
+      
+      if (command === "look") {
+        await describeLocation(gameState.location);
+        return;
+      }
+      
+      if (command === "inventory" || command === "inv" || command === "i") {
+        if (gameState.inventory.length === 0) {
+          await typeWriter("Your inventory is empty.");
+        } else {
+          await typeWriter(`Inventory: ${gameState.inventory.join(", ")}`);
+        }
+        return;
+      }
+      
+      if (command.startsWith("take ")) {
+        const itemName = command.slice(5);
+        const location = locations[gameState.location];
+        
+        if (location.items && location.items.includes(itemName)) {
+          location.items = location.items.filter((i: string) => i !== itemName);
+          gameState.inventory.push(itemName);
+          await typeWriter(`You take the ${itemName}.`);
+        } else {
+          await typeWriter("You don't see that here.");
+        }
+        return;
+      }
+      
+      // Direction commands
+      const location = locations[gameState.location];
+      if (location.exits && command in location.exits) {
+        gameState.location = location.exits[command] as LocationId;
+        await describeLocation(gameState.location);
+      } else {
+        await typeWriter("You can't go that way.");
+      }
+    };
+  };
+
   const executeCommand = async (cmd: string) => {
     const command = cmd.trim().toLowerCase();
 
     if (command === 'help') {
-      await typeWriter(HELP_TEXT);
+      await typeWriter(HELP_TEXT + FUN_HELP_TEXT);
     } else if (command === 'ls') {
       if (loading) {
         await typeWriter('Loading repositories...');
@@ -340,8 +622,49 @@ Available games:
       setTargetNumber(Math.floor(Math.random() * 10) + 1);
       setAttempts(0);
       await typeWriter('Guess a number between 1 and 10. Type your guess or "quit" to exit.');
+    } 
+    // NEW COMMAND HANDLERS
+    else if (command === "cat") {
+      await typeWriter(ASCII_CAT);
+      await typeWriter("Meow!");
+    } else if (command === "coffee") {
+      await typeWriter(ASCII_COFFEE);
+      await typeWriter("A fresh cup of coffee has been brewed. Coding power +10!");
+    } else if (command === "matrix") {
+      await matrixEffect();
+    } else if (command.startsWith("hack ")) {
+      const target = command.slice(5);
+      await simulateHacking(target);
+    } else if (command === "adventure" || command === "text-adventure") {
+      const handleAdventureCommand = await startTextAdventure();
+      adventureCommandRef.current = handleAdventureCommand;
+    } else if (command === "joke") {
+      const joke = jokes[Math.floor(Math.random() * jokes.length)];
+      await typeWriter(joke);
+    } else if (command === "cowsay") {
+      const message = "I'm a terminal cow!";
+      await typeWriter(`
+   ${"_".repeat(message.length + 2)}
+  < ${message} >
+   ${"-".repeat(message.length + 2)}
+          \\   ^__^
+           \\  (oo)\\_______
+              (__)\\       )\\/\\
+                  ||----w |
+                  ||     ||
+  `);
     } else if (command !== '') {
-      await typeWriter(`Command not found: ${command}`);
+      // Random "command not found" responses
+      const responseIndex = Math.floor(Math.random() * notFoundResponses.length);
+      let response = notFoundResponses[responseIndex];
+      
+      if (responseIndex === 0) {
+        response += command;
+      } else {
+        response += command + "'. Try 'help' for a list of commands.";
+      }
+      
+      await typeWriter(response);
     }
   };
 
@@ -410,6 +733,9 @@ Available games:
           }
           setGameOutput([]);
           await typeWriter('Game ended.');
+        } else if (currentGame === 'adventure' && adventureCommandRef.current) {
+          // Handle adventure game commands
+          await adventureCommandRef.current(cmd);
         } else if (currentGame === 'guesser') {
           const guess = parseInt(cmd);
           if (isNaN(guess)) {
