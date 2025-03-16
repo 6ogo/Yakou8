@@ -98,6 +98,14 @@ export const VisualizationsView: React.FC = (): ReactElement => {
           );
           if (!response.ok) throw new Error('Failed to fetch location data');
           data = await response.json();
+          
+          // Log the response to see the actual data structure
+          console.log('IP Lookup response:', data);
+          
+          // Check if we received valid data
+          if (!data || !data.country) {
+            throw new Error('Invalid location data received');
+          }
         } catch (locationError) {
           console.error('Error fetching location:', locationError);
           // Use fallback location data
@@ -124,7 +132,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         const geoInfo: GeoData = {
           country: data.country,
           city: data.city || data.region, // Use region as fallback if city is not available
-          region: data.region,
+          region: data.region || data.country, // Use country as fallback if region is not available
           timezone: data.timezone,
           latitude: data.lat,
           longitude: data.lon,
@@ -159,13 +167,23 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         };
 
         setGeoData(fallbackGeoData);
-        setWeatherData(generateMockWeather(fallbackGeoData));
-        setEconomicData(generateMockEconomicData(fallbackGeoData));
-        setDemographicData(generateMockDemographicData(fallbackGeoData));
-        setGeneralFacts(generateMockGeneralFacts(fallbackGeoData));
-
-        // Try to fetch quote at least
-        fetchQuote().catch(console.error);
+        
+        // Try to fetch real data with fallback location instead of immediately using mock data
+        try {
+          await Promise.all([
+            fetchCountryData(fallbackGeoData).catch(() => setDemographicData(generateMockDemographicData(fallbackGeoData))),
+            fetchWeatherData(fallbackGeoData).catch(() => setWeatherData(generateMockWeather(fallbackGeoData))),
+            fetchGdpData(fallbackGeoData).catch(() => {}),
+            fetchQuote().catch(() => {})
+          ]);
+        } catch (fallbackError) {
+          console.error('Error fetching fallback data:', fallbackError);
+          // Now use mock data as a last resort
+          setWeatherData(generateMockWeather(fallbackGeoData));
+          setEconomicData(generateMockEconomicData(fallbackGeoData));
+          setDemographicData(generateMockDemographicData(fallbackGeoData));
+          setGeneralFacts(generateMockGeneralFacts(fallbackGeoData));
+        }
 
         setLoading(false);
       }
@@ -177,20 +195,33 @@ export const VisualizationsView: React.FC = (): ReactElement => {
   // Fetch country data and population data
   const fetchCountryData = async (geoInfo: GeoData) => {
     try {
-      // Fetch country data - this seems to be working correctly
+      // Make sure we have a valid country name or code for the API
+      const countryParam = geoInfo.countryCode || encodeURIComponent(geoInfo.country);
+      console.log(`Fetching country data for: ${countryParam}`);
+      
+      // Fetch country data
       const countryResponse = await fetch(
-        `https://api.api-ninjas.com/v1/country?name=${encodeURIComponent(geoInfo.country)}`,
+        `https://api.api-ninjas.com/v1/country?name=${countryParam}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
       );
-      if (!countryResponse.ok) throw new Error('Failed to fetch country data');
+      
+      if (!countryResponse.ok) {
+        console.error(`Country API error: ${countryResponse.status} ${countryResponse.statusText}`);
+        throw new Error('Failed to fetch country data');
+      }
+      
       const countryData = await countryResponse.json();
-      if (!countryData || countryData.length === 0) throw new Error('No country data found');
+      console.log('Country data response:', countryData);
+      
+      if (!countryData || countryData.length === 0) {
+        throw new Error('No country data found');
+      }
 
       const country = countryData[0];
 
-      // Fetch population data using correct parameters
+      // Fetch population data using correct parameters (use countryCode if available as it's more reliable)
       const populationResponse = await fetch(
-        `https://api.api-ninjas.com/v1/population?country=${encodeURIComponent(geoInfo.country)}`,
+        `https://api.api-ninjas.com/v1/population?country=${countryParam}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
       );
 
@@ -213,6 +244,8 @@ export const VisualizationsView: React.FC = (): ReactElement => {
           populationGrowth = countryPopData.population_growth_rate || populationGrowth;
           urbanPopulation = countryPopData.urban_population_percent || urbanPopulation;
         }
+      } else {
+        console.warn('Population API request failed, using data from country API instead');
       }
 
       const lifeExpectancyMale = parseFloat(country.life_expectancy_male);
@@ -276,9 +309,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       });
     } catch (error) {
       console.error('Error fetching country data:', error);
-      setDemographicData(generateMockDemographicData(geoInfo));
-      setEconomicData(generateMockEconomicData(geoInfo));
-      setGeneralFacts(generateMockGeneralFacts(geoInfo));
+      throw error; // Re-throw to be caught by the caller
     }
   };
 
@@ -286,21 +317,40 @@ export const VisualizationsView: React.FC = (): ReactElement => {
   // Fetch weather data
   const fetchWeatherData = async (geoInfo: GeoData) => {
     try {
+      // Make sure we have valid coordinates for the weather API
+      if (!geoInfo.latitude || !geoInfo.longitude) {
+        throw new Error('Missing coordinates for weather data');
+      }
+      
+      console.log(`Fetching weather for coordinates: ${geoInfo.latitude}, ${geoInfo.longitude}`);
+      
       // Fetch current weather
       const weatherResponse = await fetch(
         `https://api.api-ninjas.com/v1/weather?lat=${geoInfo.latitude}&lon=${geoInfo.longitude}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
       );
-      if (!weatherResponse.ok) throw new Error('Failed to fetch weather data');
+      
+      if (!weatherResponse.ok) {
+        console.error(`Weather API error: ${weatherResponse.status} ${weatherResponse.statusText}`);
+        throw new Error('Failed to fetch weather data');
+      }
+      
       const currentWeather = await weatherResponse.json();
+      console.log('Weather data:', currentWeather);
 
       // Fetch weather forecast
       const forecastResponse = await fetch(
         `https://api.api-ninjas.com/v1/weatherforecast?lat=${geoInfo.latitude}&lon=${geoInfo.longitude}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
       );
-      if (!forecastResponse.ok) throw new Error('Failed to fetch forecast data');
+      
+      if (!forecastResponse.ok) {
+        console.error(`Forecast API error: ${forecastResponse.status} ${forecastResponse.statusText}`);
+        throw new Error('Failed to fetch forecast data');
+      }
+      
       const forecastData = await forecastResponse.json();
+      console.log('Forecast data:', forecastData);
 
       // Process forecast data into daily summaries
       const forecastByDay: { [key: string]: any[] } = forecastData.reduce((acc: any, item: any) => {
@@ -339,7 +389,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       });
     } catch (error) {
       console.error('Error fetching weather data:', error);
-      setWeatherData(generateMockWeather(geoInfo));
+      throw error; // Re-throw to be caught by the caller
     }
   };
 
@@ -356,6 +406,11 @@ export const VisualizationsView: React.FC = (): ReactElement => {
     try {
       // Use the country code as it's more reliable for API calls
       const countryParam = geoInfo.countryCode || geoInfo.country || '';
+      if (!countryParam) {
+        throw new Error('Missing country information for GDP data');
+      }
+      
+      console.log(`Fetching GDP data for: ${countryParam}`);
 
       const gdpResponse = await fetch(
         `https://api.api-ninjas.com/v1/gdp?country=${encodeURIComponent(countryParam)}`,
@@ -387,7 +442,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       }
     } catch (error) {
       console.error('Error fetching GDP data:', error);
-      // We don't need to set mock data here, as it's already set in fetchCountryData
+      // We don't need to set mock data here, as it's already set in fetchCountryData or the fallback mechanism
     }
   };
 
