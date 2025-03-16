@@ -174,9 +174,10 @@ export const VisualizationsView: React.FC = (): ReactElement => {
     fetchAllData();
   }, []);
 
-  // Fetch country data
+  // Fetch country data and population data
   const fetchCountryData = async (geoInfo: GeoData) => {
     try {
+      // Fetch country data
       const countryResponse = await fetch(
         `https://api.api-ninjas.com/v1/country?name=${encodeURIComponent(geoInfo.country)}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
@@ -186,10 +187,32 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       if (!countryData || countryData.length === 0) throw new Error('No country data found');
 
       const country = countryData[0];
-
-      const population = parseInt(country.population) * 1000; // Assuming population is in thousands
-      const urbanPopulation = parseFloat(country.urban_population);
-      const populationGrowth = parseFloat(country.pop_growth);
+      
+      // Also fetch population data for more accurate demographic information
+      const populationResponse = await fetch(
+        `https://api.api-ninjas.com/v1/population?country=${encodeURIComponent(geoInfo.country || '')}`,
+        { headers: { 'X-Api-Key': API_NINJAS_KEY } }
+      );
+      
+      let population = parseInt(country.population) * 1000; // Default from country API (in thousands)
+      let populationGrowth = parseFloat(country.pop_growth);
+      let urbanPopulation = parseFloat(country.urban_population);
+      
+      // If population API succeeds, use that data instead as it's more detailed
+      if (populationResponse.ok) {
+        const populationData = await populationResponse.json();
+        console.log('Population data:', populationData);
+        
+        if (populationData && populationData.historical_population && 
+            populationData.historical_population.length > 0) {
+          // Get the most recent historical data
+          const recentPopulation = populationData.historical_population[0];
+          population = recentPopulation.population;
+          populationGrowth = recentPopulation.yearly_change_percentage;
+          urbanPopulation = recentPopulation.urban_population_pct;
+        }
+      }
+      
       const lifeExpectancyMale = parseFloat(country.life_expectancy_male);
       const lifeExpectancyFemale = parseFloat(country.life_expectancy_female);
       const lifeExpectancy = (lifeExpectancyMale + lifeExpectancyFemale) / 2;
@@ -328,25 +351,40 @@ export const VisualizationsView: React.FC = (): ReactElement => {
   // Fetch GDP data
   const fetchGdpData = async (geoInfo: GeoData) => {
     try {
+      // Use the country name or code as specified in the API documentation
+      const countryParam = geoInfo.country || geoInfo.countryCode || '';
+      
       const gdpResponse = await fetch(
-        `https://api.api-ninjas.com/v1/gdp?country=${geoInfo.countryCode}`,
+        `https://api.api-ninjas.com/v1/gdp?country=${encodeURIComponent(countryParam)}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
       );
-      if (!gdpResponse.ok) throw new Error('Failed to fetch GDP data');
+      
+      if (!gdpResponse.ok) {
+        console.error(`GDP API error: ${gdpResponse.status} ${gdpResponse.statusText}`);
+        throw new Error('Failed to fetch GDP data');
+      }
+      
       const gdpData = await gdpResponse.json();
+      console.log('GDP data:', gdpData);
+      
       if (gdpData && gdpData.length > 0) {
-        gdpData.sort((a: any, b: any) => b.year - a.year); // Get most recent
+        // Sort by year to get the most recent data
+        gdpData.sort((a: any, b: any) => b.year - a.year);
         const recentGdp = gdpData[0];
+        
         setEconomicData(prev => ({
           ...prev,
-          gdp: recentGdp.gdp_nominal / 1000, // Convert to billions
+          gdp: recentGdp.gdp_nominal / 1000, // Convert to billions for display
           gdpGrowth: recentGdp.gdp_growth,
           gdpPerCapita: recentGdp.gdp_per_capita_nominal
         }));
+      } else {
+        throw new Error('No GDP data available');
       }
     } catch (error) {
       console.error('Error fetching GDP data:', error);
-      // Rely on country API data or mock data as fallback
+      // Use mock data as fallback
+      setEconomicData(generateMockEconomicData(geoInfo));
     }
   };
 
