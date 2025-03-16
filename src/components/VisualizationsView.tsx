@@ -71,7 +71,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
 
   // API key handling with additional checks
   const API_NINJAS_KEY = import.meta.env.VITE_API_NINJAS_KEY;
-  
+
   // Default/fallback location for Sweden/Stockholm
   const DEFAULT_LOCATION: GeoData = {
     country: 'Sweden',
@@ -88,7 +88,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
-        
+
         // Skip API calls if API key is missing and use fallback data directly
         if (!API_NINJAS_KEY) {
           console.warn('API Ninjas key is not available in environment variables');
@@ -104,20 +104,20 @@ export const VisualizationsView: React.FC = (): ReactElement => {
           if (ipResponse.ok) {
             const ipData = await ipResponse.json();
             const ipAddress = ipData.ip;
-            
+
             const locationResponse = await fetch(
               `https://api.api-ninjas.com/v1/iplookup?address=${ipAddress}`,
-              { 
-                headers: { 
+              {
+                headers: {
                   'X-Api-Key': API_NINJAS_KEY,
                   'Content-Type': 'application/json'
                 }
               }
             );
-            
+
             if (locationResponse.ok) {
               const data = await locationResponse.json();
-              
+
               // Make sure we have valid location data before using it
               if (data && data.country && data.is_valid !== false) {
                 // Determine continent code 
@@ -128,11 +128,11 @@ export const VisualizationsView: React.FC = (): ReactElement => {
                 else if (['AU', 'NZ'].includes(data.country_code)) continentCode = 'OC';
                 else if (['BR', 'AR', 'CO', 'PE', 'CL'].includes(data.country_code)) continentCode = 'SA';
                 else if (['ZA', 'NG', 'EG', 'KE', 'ET'].includes(data.country_code)) continentCode = 'AF';
-                
+
                 // Check if we have numeric coordinates, not strings
                 const latitude = typeof data.lat === 'number' ? data.lat : parseFloat(data.lat);
                 const longitude = typeof data.lon === 'number' ? data.lon : parseFloat(data.lon);
-                
+
                 // Only use data if coordinates are valid numbers
                 if (!isNaN(latitude) && !isNaN(longitude)) {
                   locationData = {
@@ -153,7 +153,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
           console.error('Error fetching location:', locationError);
           // We'll use the default location set above
         }
-        
+
         // Set location data in state
         setGeoData(locationData);
 
@@ -172,14 +172,14 @@ export const VisualizationsView: React.FC = (): ReactElement => {
 
         // Set fallback location data
         setGeoData(DEFAULT_LOCATION);
-        
+
         // Since API calls are failing, use mock data directly
         console.log('Using mock data for all sections');
         setWeatherData(generateMockWeather(DEFAULT_LOCATION));
         setEconomicData(generateMockEconomicData(DEFAULT_LOCATION));
         setDemographicData(generateMockDemographicData(DEFAULT_LOCATION));
         setGeneralFacts(generateMockGeneralFacts(DEFAULT_LOCATION));
-        
+
         // Still try to fetch quote with a different error handling approach
         fetchQuote().catch(() => {
           setQuote({
@@ -201,24 +201,24 @@ export const VisualizationsView: React.FC = (): ReactElement => {
     try {
       // Make sure we have a valid country name or code for the API
       const countryParam = encodeURIComponent(geoInfo.country);
-      
+
       // Fetch country data
       const countryResponse = await fetch(
         `https://api.api-ninjas.com/v1/country?name=${countryParam}`,
-        { 
-          headers: { 
+        {
+          headers: {
             'X-Api-Key': API_NINJAS_KEY,
             'Content-Type': 'application/json'
-          } 
+          }
         }
       );
-      
+
       if (!countryResponse.ok) {
         throw new Error('Failed to fetch country data');
       }
-      
+
       const countryData = await countryResponse.json();
-      
+
       if (!countryData || countryData.length === 0) {
         throw new Error('No country data found');
       }
@@ -320,22 +320,22 @@ export const VisualizationsView: React.FC = (): ReactElement => {
   const fetchWeatherData = async (geoInfo: GeoData) => {
     try {
       // Make sure we have valid coordinates for the weather API
-      if (!geoInfo.latitude || !geoInfo.longitude || 
-          typeof geoInfo.latitude !== 'number' || 
-          typeof geoInfo.longitude !== 'number') {
+      if (!geoInfo.latitude || !geoInfo.longitude ||
+        typeof geoInfo.latitude !== 'number' ||
+        typeof geoInfo.longitude !== 'number') {
         throw new Error('Missing or invalid coordinates for weather data');
       }
-      
+
       // Fetch current weather
       const weatherResponse = await fetch(
         `https://api.api-ninjas.com/v1/weather?lat=${geoInfo.latitude}&lon=${geoInfo.longitude}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
       );
-      
+
       if (!weatherResponse.ok) {
         throw new Error('Failed to fetch weather data');
       }
-      
+
       const currentWeather = await weatherResponse.json();
 
       // Fetch weather forecast
@@ -343,16 +343,16 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         `https://api.api-ninjas.com/v1/weatherforecast?lat=${geoInfo.latitude}&lon=${geoInfo.longitude}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
       );
-      
+
       if (!forecastResponse.ok) {
         throw new Error('Failed to fetch forecast data');
       }
-      
+
       const forecastData = await forecastResponse.json();
 
       // Process forecast data into daily summaries
       const forecastByDay: { [key: string]: any[] } = {};
-      
+
       // Check if forecastData is an array before processing
       if (Array.isArray(forecastData)) {
         forecastData.forEach(item => {
@@ -414,7 +414,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       if (!countryParam) {
         throw new Error('Missing country information for GDP data');
       }
-      
+
       const gdpResponse = await fetch(
         `https://api.api-ninjas.com/v1/gdp?country=${encodeURIComponent(countryParam)}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
@@ -453,18 +453,18 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       // Fetch a general quote instead of trying to use the category parameter
       const quoteResponse = await fetch(
         'https://api.api-ninjas.com/v1/quotes',
-        { 
-          headers: { 
+        {
+          headers: {
             'X-Api-Key': API_NINJAS_KEY,
             'Content-Type': 'application/json'
-          } 
+          }
         }
       );
-      
+
       if (!quoteResponse.ok) {
         throw new Error('Failed to fetch quote');
       }
-      
+
       const quoteData = await quoteResponse.json();
       if (quoteData && quoteData.length > 0) {
         setQuote(quoteData[0]);
@@ -534,7 +534,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         ]
       };
     }
-    
+
     // Generic fallback
     return {
       gdp: 500,
@@ -561,7 +561,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         urbanPopulation: 87.2
       };
     }
-    
+
     // Generic fallback
     return {
       population: 50000000,
@@ -588,7 +588,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         ]
       };
     }
-    
+
     // Generic fallback
     return {
       capital: 'Main City',
@@ -605,11 +605,15 @@ export const VisualizationsView: React.FC = (): ReactElement => {
 
   const formatNumber = (num: number, digits = 1): string => {
     if (isNaN(num)) return '0';
-    
+
     const units = ['', 'K', 'M', 'B', 'T'];
     const floor = Math.floor(Math.log10(Math.abs(num || 1)) / 3);
+    // Don't include the unit in the return value
+    return (num / Math.pow(1000, floor)).toFixed(digits);
+    // OR keep the unit here and remove it from the JSX
     return (num / Math.pow(1000, floor)).toFixed(digits) + units[floor];
   };
+
 
   const TabNavigation = () => (
     <div className="flex justify-center mb-6 border-b border-green-500/30">
