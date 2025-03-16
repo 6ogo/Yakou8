@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Repository } from '../types';
-const token = import.meta.env.VITE_GITHUB_TOKEN;
 
 // Mock data to use as fallback when API calls fail
 const mockRepositories: Repository[] = [
@@ -46,21 +45,61 @@ export function useGitHubData() {
 
   useEffect(() => {
     const fetchData = async () => {
+      // Check for cached data first - with expiration time of 1 hour
       const cachedData = localStorage.getItem('githubRepos');
-      if (cachedData) {
-        setRepositories(JSON.parse(cachedData));
-        setLoading(false);
-        return;
+      const cacheTimestamp = localStorage.getItem('githubReposTimestamp');
+      
+      const cacheIsValid = 
+        cachedData && 
+        cacheTimestamp && 
+        (Date.now() - parseInt(cacheTimestamp) < 3600000); // 1 hour in milliseconds
+      
+      if (cacheIsValid) {
+        try {
+          const parsedData = JSON.parse(cachedData);
+          // Convert string dates back to Date objects
+          const reposWithDates = parsedData.map((repo: any) => ({
+            ...repo,
+            latestCommitDate: repo.latestCommitDate ? new Date(repo.latestCommitDate) : undefined
+          }));
+          setRepositories(reposWithDates);
+          setLoading(false);
+          console.log('Using cached GitHub data');
+          return;
+        } catch (err) {
+          console.error('Error parsing cached GitHub data:', err);
+          // Continue with API fetch if cache parse failed
+        }
       }
+
       try {
         console.log('Fetching GitHub repositories...');
+        
+        // Get GitHub token from environment
+        const token = import.meta.env.VITE_GITHUB_TOKEN;
+        
+        // Debug: Check if token is available
+        if (!token) {
+          console.warn('GitHub token is not available in environment variables');
+        } else {
+          console.log('GitHub token is available:', token.substring(0, 4) + '...');
+        }
+        
+        // Prepare headers with token if available
+        const headers: HeadersInit = {
+          'Accept': 'application/vnd.github.v3+json',
+        };
+        
+        if (token) {
+          // GitHub API expects "Bearer" format for newer tokens
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
         // Fetch repositories
         const reposResponse = await fetch('https://api.github.com/users/6ogo/repos', {
-          headers: {
-            'Accept': 'application/vnd.github.v3+json',
-            'Authorization': `token ${token}`,
-          },
-          cache: 'force-cache'
+          headers,
+          // Use no-store to ensure fresh data
+          cache: 'no-store'
         });
         
         // Check for rate limiting or other errors
@@ -93,17 +132,15 @@ export function useGitHubData() {
         const reposWithCommits = await Promise.all(
           reposWithoutCommits.map(async (repo, index) => {
             try {
-              // Add a small delay between requests to avoid rate limiting
+              // Add a longer delay between requests to avoid rate limiting
               if (index > 0) {
-                await new Promise(resolve => setTimeout(resolve, 100 * index));
+                await new Promise(resolve => setTimeout(resolve, 300 * index));
               }
               
               console.log(`Fetching commits for ${repo.name}...`);
               const commitsResponse = await fetch(`https://api.github.com/repos/6ogo/${repo.name}/commits?per_page=1`, {
-                headers: {
-                  'Accept': 'application/vnd.github.v3+json',
-                },
-                cache: 'force-cache'
+                headers, // Use the same headers with auth token
+                cache: 'no-store'
               });
               
               if (commitsResponse.ok) {
@@ -128,14 +165,44 @@ export function useGitHubData() {
           })
         );
         
+        // Store the data in the state
         setRepositories(reposWithCommits);
-        localStorage.setItem('githubRepos', JSON.stringify(reposWithCommits));
+        
+        // Cache the data and timestamp
+        try {
+          localStorage.setItem('githubRepos', JSON.stringify(reposWithCommits));
+          localStorage.setItem('githubReposTimestamp', Date.now().toString());
+          console.log('GitHub data cached successfully');
+        } catch (cacheErr) {
+          console.warn('Failed to cache GitHub data:', cacheErr);
+        }
+        
         setLoading(false);
       } catch (err) {
         console.error('GitHub data fetch error:', err);
-        // Use mock data as fallback
-        console.log('Using mock repository data as fallback');
-        setRepositories(mockRepositories);
+        
+        // Check if we have cached data even if it's expired
+        const cachedData = localStorage.getItem('githubRepos');
+        if (cachedData) {
+          try {
+            const parsedData = JSON.parse(cachedData);
+            const reposWithDates = parsedData.map((repo: any) => ({
+              ...repo,
+              latestCommitDate: repo.latestCommitDate ? new Date(repo.latestCommitDate) : undefined
+            }));
+            console.log('Using expired cached GitHub data as fallback');
+            setRepositories(reposWithDates);
+          } catch (cacheErr) {
+            // If cache parsing fails, fall back to mock data
+            console.log('Using mock repository data as fallback');
+            setRepositories(mockRepositories);
+          }
+        } else {
+          // Use mock data as fallback if no cache exists
+          console.log('Using mock repository data as fallback');
+          setRepositories(mockRepositories);
+        }
+        
         setError(err instanceof Error ? err.message : 'An error occurred');
         setLoading(false);
       }
