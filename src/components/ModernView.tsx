@@ -101,20 +101,21 @@ export const ModernView: React.FC<ModernViewProps> = ({ repositories, loading, e
                 </div>
               </div>
 
-              {/* Display commit date and title instead of description */}
-              {repo.latestCommitDate ? (
-                <div className="mb-4">
+              {/* Display repository description */}
+              <p className="text-gray-400 mb-3 h-12 line-clamp-2">
+                {repo.description || 'No description available'}
+              </p>
+              
+              {/* Display commit date and title if available */}
+              {repo.latestCommitDate && (
+                <div className="mb-3">
                   <p className="text-gray-300 text-sm mb-1">
-                    <span className="font-semibold">Latest commit:</span> {new Date(repo.latestCommitDate).toLocaleDateString()}
+                    <span className="font-semibold">Updated:</span> {new Date(repo.latestCommitDate).toLocaleDateString()}
                   </p>
-                  <p className="text-gray-400 h-12 line-clamp-2">
+                  <p className="text-gray-400 text-sm line-clamp-1">
                     {repo.latestCommitTitle || 'No commit message'}
                   </p>
                 </div>
-              ) : (
-                <p className="text-gray-400 mb-4 h-12 line-clamp-2">
-                  {repo.description || 'No description available'}
-                </p>
               )}
 
               {repo.language && (
