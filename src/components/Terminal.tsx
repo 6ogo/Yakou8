@@ -9,8 +9,8 @@ const ASCII_LOGO = `
     ----     ------------ ---------    ---      --- ----    ---- -----------  
     ****     ************ ****  ****   ****    **** ************ ****       *** 
     ----     ----    ---- ----   ----   ----------  ------------ --------------  
-    ****     ****    **** ****    ****   ********   ************ ************  
-`;
+    ****     ****    **** ****    ****   ********   ************ ************
+\n`;
 
 const HELP_TEXT = `
 Available commands:
@@ -233,7 +233,7 @@ Check out my work on GitHub: https://github.com/6ogo/`);
   useEffect(() => {
     const initTerminal = async () => {
       await typeWriter(ASCII_LOGO);
-      await typeWriter('\nWelcome to Yakou8\'s page! Type "help" for available commands.\n');
+      await typeWriter('\nWelcome to Yakou8\'s page! Type "help" for available commands.');
     };
     initTerminal();
 
