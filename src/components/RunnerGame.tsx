@@ -7,6 +7,7 @@ interface GameObject {
   height: number;
   speed?: number;
   type?: 'high' | 'low';
+  passed?: boolean;
 }
 
 interface RunnerGameProps {
@@ -80,6 +81,12 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
     let animationFrameId: number;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent game keys from affecting the terminal
+      if (['ArrowUp', 'ArrowDown', 'w', 's', 'Escape'].includes(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
       if (e.key === 'Escape') {
         onQuit();
         return;
@@ -99,6 +106,12 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      // Prevent game keys from affecting the terminal
+      if (['ArrowUp', 'ArrowDown', 'w', 's', 'Escape'].includes(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
       if (gameOver) return;
       
       if (e.key === 'ArrowDown' || e.key === 's') {
@@ -113,17 +126,13 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
       const type = Math.random() > 0.6 ? 'high' : 'low';
       const obstacle: GameObject = {
         x: canvas.width,
-        y: type === 'high' ? canvas.height - 70 : canvas.height - 40, // Position low obstacles at player standing height
+        y: type === 'high' ? canvas.height - 60 : canvas.height - 40, // Position high obstacles lower so they require ducking
         width: 20,
-        height: type === 'high' ? 30 : 20, // High obstacles require jump, low obstacles require duck
+        height: type === 'high' ? 30 : 20, // High obstacles require duck, low obstacles require jump
         speed: gameStateRef.current.gameSpeed,
-        type: type // Store the type for easier reference
+        type: type, // Store the type for easier reference
+        passed: false // Track if player has passed this obstacle
       };
-      
-      // Increment score immediately when obstacle is spawned
-      scoreRef.current += 1;
-      // Force update score display
-      setScore(scoreRef.current);
       
       gameStateRef.current.obstacles.push(obstacle);
     };
@@ -193,6 +202,13 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
         // Only move obstacles if game is running
         if (!gameOver) {
           obstacle.x -= obstacle.speed!;
+          
+          // Add score when passing an obstacle (when the obstacle passes the player)
+          if (obstacle.x + obstacle.width < player.x && !obstacle.passed) {
+            obstacle.passed = true;
+            scoreRef.current += 1;
+            setScore(scoreRef.current);
+          }
         }
         
         // Draw obstacle with color based on type
@@ -207,15 +223,15 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
         if (!gameOver) {
           // Special collision handling for different obstacle types
           if (obstacle.type === 'low') {
-            // For low obstacles, player must be ducking to avoid a collision
-            if (checkCollision(player, obstacle) && !isDucking) {
+            // For low obstacles, player must be jumping to avoid a collision
+            if (checkCollision(player, obstacle) && !isJumping) {
               setGameOver(true);
               gameStateRef.current.isRunning = false;
               return false;
             }
           } else if (obstacle.type === 'high') {
-            // For high obstacles, player must be jumping to avoid a collision
-            if (checkCollision(player, obstacle) && !isJumping) {
+            // For high obstacles, player must be ducking to avoid a collision
+            if (checkCollision(player, obstacle) && !isDucking) {
               setGameOver(true);
               gameStateRef.current.isRunning = false;
               return false;
@@ -254,7 +270,7 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
       // Draw controls info if game is running
       if (!gameOver) {
         ctx.font = '14px monospace';
-        ctx.fillText('W/⬆️: Jump | S/⬇️: Duck | ESC: Quit', canvas.width / 2 - 140, 30);
+        ctx.fillText('W/⬆️: Jump over low obstacles | S/⬇️: Duck under high obstacles | ESC: Quit', canvas.width / 2 - 240, 30);
       }
 
       animationFrameId = requestAnimationFrame(gameLoop);
