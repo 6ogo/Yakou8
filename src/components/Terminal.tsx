@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Repository } from '../types';
 
 const ASCII_LOGO = `
-_____.___.  _____   ____  __.________   ____ ___  ______  
-\\__  |   | /  _  \\ |    |/ _|\\_____  \\ |    |   \\/  __  \\ 
- /   |   |/  /_\\  \\|      <   /   |   \\|    |   />      < 
- \\____   /    |    \\    |  \\ /    |    \\    |  //   --   \\
- / ______\\____|__  /____|__ \\\\_______  /______/ \\______  /
- \\/              \\/        \\/        \\/                \\/  
-`;
+_____.___.       __                 ______  
+\__  |   |____  |  | ______  __ __ /  __  \ 
+ /   |   \__  \ |  |/ /  _ \|  |  \>      < 
+ \____   |/ __ \|    <  <_> )  |  /   --   \
+ / ______(____  /__|_ \____/|____/\______  /
+ \/           \/     \/                  \/ 
+ `;
 
 const HELP_TEXT = `
 Available commands:
@@ -86,9 +86,7 @@ Full-stack developer passionate about creating elegant solutions.
 Check out my work on GitHub: https://github.com/6ogo/`);
     } else if (command === 'game') {
       await typeWriter(`
-Starting runner game...
-Use W/S or Arrow Up/Down to jump/duck
-Press ESC to quit`);
+Starting runner game...`);
       onStartGame();
     } else if (command !== '') {
       await typeWriter(`Command not found: ${command}`);
