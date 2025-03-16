@@ -4,7 +4,9 @@ import { Terminal as TerminalComponent } from './components/Terminal';
 import { ModernView } from './components/ModernView';
 import { VisualizationsView } from './components/VisualizationsView';
 import { RunnerGame } from './components/RunnerGame';
+import { MobileSequence } from './components/MobileSequence';
 import { useGitHubData } from './hooks/useGitHubData';
+import { useMobileDetection } from './hooks/useMobileDetection';
 
 type ViewMode = 'terminal' | 'projects' | 'visualizations';
 
@@ -14,8 +16,12 @@ function App() {
   const [showViewHint, setShowViewHint] = useState(false);
   const [showArrowOnly, setShowArrowOnly] = useState(false);
   const [hasClickedViewButton, setHasClickedViewButton] = useState(false);
+  const [mobileSequenceComplete, setMobileSequenceComplete] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
   const { repositories, loading, error } = useGitHubData();
+  
+  // Detect if device is mobile
+  const isMobile = useMobileDetection();
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -90,6 +96,82 @@ function App() {
     return () => clearTimeout(hintTimer);
   }, [hasClickedViewButton]);
 
+  // Render different layouts for mobile and desktop
+  if (isMobile) {
+    return (
+      <div
+        ref={mainRef}
+        className="min-h-screen bg-black text-green-500 transition-all duration-500 overflow-y-auto"
+      >
+        <div className="grain" />
+        
+        {/* Mobile Loading & Hacking Sequence */}
+        {!mobileSequenceComplete && (
+          <MobileSequence onComplete={() => setMobileSequenceComplete(true)} />
+        )}
+        
+        {/* Mobile Content (Sequential Vertical Layout) */}
+        <div className={`transition-opacity duration-500 ${mobileSequenceComplete ? 'opacity-100' : 'opacity-0'}`}>
+          {/* Personal Info Section */}
+          <section className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+            <h1 className="text-4xl font-bold mb-6">George Yakoub</h1>
+            <p className="text-xl mb-8">Developer & Technologist</p>
+            <div className="mb-8 w-full max-w-md p-6 bg-gray-900/50 rounded-lg border border-green-500/30">
+              <p className="mb-4">
+                I am a passionate developer with expertise in creating elegant solutions and 
+                building innovative products. Explore my projects below.
+              </p>
+              <a
+                href="https://github.com/6ogo"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-green-500 text-black px-4 py-2 rounded hover:bg-green-400 transition-colors"
+              >
+                <Github size={18} />
+                <span>GitHub Profile</span>
+              </a>
+            </div>
+            <div className="animate-bounce mt-6">
+              <p className="text-sm mb-2">Continue scrolling</p>
+              <ArrowRight size={20} className="transform rotate-90 mx-auto" />
+            </div>
+          </section>
+
+          {/* Projects Section */}
+          <section className="min-h-screen pt-20 pb-32">
+            <ModernView repositories={repositories} loading={loading} error={error} />
+          </section>
+          
+          {/* Terminal Section */}
+          <section className="min-h-screen pt-20 pb-32">
+            <div className="container mx-auto px-4">
+              <h2 className="text-3xl font-bold mb-6 text-center">Terminal Experience</h2>
+              <p className="text-center mb-6">Try interacting with the terminal below:</p>
+              <div className="h-[70vh] overflow-hidden rounded-lg border border-green-500/30">
+                <TerminalComponent 
+                  repositories={repositories} 
+                  loading={loading} 
+                  error={error}
+                  onStartGame={() => setIsGameActive(true)}
+                />
+              </div>
+            </div>
+          </section>
+          
+          {/* Visualizations Section */}
+          <section className="min-h-screen pt-20 pb-32">
+            <VisualizationsView />
+          </section>
+        </div>
+        
+        {isGameActive && (
+          <RunnerGame onQuit={() => setIsGameActive(false)} />
+        )}
+      </div>
+    );
+  }
+  
+  // Desktop Experience (Original Layout)
   return (
     <div 
       ref={mainRef}
@@ -142,4 +224,4 @@ function App() {
   );
 }
 
-export default App
+export default App;

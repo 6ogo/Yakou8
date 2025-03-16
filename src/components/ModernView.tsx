@@ -47,19 +47,19 @@ export const ModernView: React.FC<ModernViewProps> = ({ repositories, loading, e
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="max-w-7xl mx-auto px-4 py-16">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">Yakoub's Projects</h1>
-          <div className="flex items-center justify-center gap-2 mb-8">
+    <div className="bg-black">
+      <div className="max-w-7xl mx-auto px-4 py-8 md:py-16">
+        <header className="text-center mb-8 md:mb-12">
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">Yakoub's Projects</h1>
+          <div className="flex items-center justify-center gap-2 mb-6 md:mb-8">
             <a
               href="https://github.com/6ogo/"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-green-500 hover:text-green-400 transition-colors"
             >
-              <Github size={24} />
-              <span className="text-xl">github.com/6ogo</span>
+              <Github size={20} className="md:w-6 md:h-6" />
+              <span className="text-lg md:text-xl">github.com/6ogo</span>
             </a>
           </div>
           <input
@@ -70,7 +70,7 @@ export const ModernView: React.FC<ModernViewProps> = ({ repositories, loading, e
             onChange={(e) => setFilter(e.target.value)}
           />
         </header>
-
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRepos.map(repo => (
             <div
