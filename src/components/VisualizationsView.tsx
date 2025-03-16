@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, ReactElement } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { MapPin, Globe, Users, Cloud, Umbrella, Wind, Droplet, Thermometer, TrendingUp, DollarSign, Landmark, BarChart2, Activity, Info } from 'lucide-react';
 
@@ -62,7 +62,7 @@ interface GeneralFacts {
   interestingFacts?: string[];
 }
 
-export const VisualizationsView: React.FC = () => {
+export const VisualizationsView: React.FC = (): ReactElement => {
   const [geoData, setGeoData] = useState<GeoData | null>(null);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [economicData, setEconomicData] = useState<EconomicData | null>(null);
@@ -150,6 +150,7 @@ export const VisualizationsView: React.FC = () => {
   }, []);
   
   // API Ninjas API key
+  const API_NINJAS_KEY = import.meta.env.VITE_API_NINJAS_KEY;
   
   // Fetch country data from API Ninjas
   const fetchCountryData = async (geoInfo: GeoData) => {
@@ -1044,6 +1045,5 @@ export const VisualizationsView: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
   );
 };
