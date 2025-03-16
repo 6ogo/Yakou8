@@ -831,8 +831,11 @@ Available games:
     }
   }, [output, gameOutput]);
 
+  // Initialize terminal with appropriate ASCII art
   useEffect(() => {
     const initTerminal = async () => {
+      // Clear previous output when changing logo
+      setOutput([]);
       // Use responsive ASCII art based on screen width
       const logoToUse = isMobile ? ASCII_LOGO_SMALL : ASCII_LOGO_LARGE;
       await typeWriter(logoToUse);
@@ -840,7 +843,10 @@ Available games:
       await typeWriter('\nWelcome to Yakou8\'s page! Type "help" for available commands.');
     };
     initTerminal();
+  }, [isMobile]); // Re-run when mobile status changes
 
+  // Set up global event listeners
+  useEffect(() => {
     const handleGlobalClick = () => {
       if (inputRef.current) inputRef.current.focus();
     };
@@ -850,7 +856,7 @@ Available games:
       document.removeEventListener('click', handleGlobalClick);
       if (gameLoopRef.current) clearInterval(gameLoopRef.current);
     };
-  }, [isMobile]);
+  }, []);
 
   return (
     <div
