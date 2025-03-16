@@ -101,7 +101,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
 
         const geoInfo: GeoData = {
           country: data.country,
-          city: data.city,
+          city: data.city || data.region, // Use region as fallback if city is not available
           region: data.region,
           timezone: data.timezone,
           latitude: data.lat,
@@ -451,7 +451,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         <div className="bg-gray-900 rounded-lg p-6 mb-6 border border-green-500/30">
           <h2 className="text-xl font-semibold mb-4 flex items-center text-green-400"><MapPin className="mr-2" size={20} />Your Location</h2>
           <div className="p-4 bg-green-500/20 rounded-lg">
-            <p className="text-xl flex items-center"><Globe size={18} className="mr-2" />{geoData.city}, {geoData.country} ({geoData.timezone})</p>
+            <p className="text-xl flex items-center"><Globe size={18} className="mr-2" />{geoData.region}, {geoData.country} ({geoData.timezone})</p>
           </div>
         </div>
       )}
@@ -461,7 +461,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       {activeTab === 'weather' && weatherData && (
         <div className="space-y-6">
           <div className="bg-gray-900 rounded-lg p-6 border border-green-500/30">
-            <h2 className="text-xl font-semibold mb-4 flex items-center text-green-400"><Cloud className="mr-2" size={20} />Current Weather in {geoData?.city}</h2>
+            <h2 className="text-xl font-semibold mb-4 flex items-center text-green-400"><Cloud className="mr-2" size={20} />Current Weather in {geoData?.region}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 bg-green-500/20 rounded-lg">
                 <div className="flex items-center"><Thermometer size={18} className="mr-2" /><span>Temperature</span></div>
