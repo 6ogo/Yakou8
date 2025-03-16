@@ -315,10 +315,10 @@ Available games:
   game guesser     - Play the number guessing game
   game help        - Show this help message
 `);
-    } else if (command === 'game runner') {
+    } else if (command === 'game runner' || command === 'runner') {
       await typeWriter('Starting runner game...');
       onStartGame();
-    } else if (command === 'game spaceshooter') {
+    } else if (command === 'game spaceshooter' || command === 'spaceshooter') {
       setGameActive(true);
       setCurrentGame('spaceshooter');
       const initialState = initializeSpaceShooter();
@@ -334,7 +334,7 @@ Available games:
         });
       }, 200);
       if (inputRef.current) inputRef.current.focus();
-    } else if (command === 'game guesser') {
+    } else if (command === 'game guesser' || command === 'guesser') {
       setGameActive(true);
       setCurrentGame('guesser');
       setTargetNumber(Math.floor(Math.random() * 10) + 1);
