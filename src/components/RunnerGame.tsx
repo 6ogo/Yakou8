@@ -6,6 +6,7 @@ interface GameObject {
   width: number;
   height: number;
   speed?: number;
+  type?: 'high' | 'low';
 }
 
 interface RunnerGameProps {
@@ -108,15 +109,22 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
     };
 
     const spawnObstacle = () => {
-      const type = Math.random() > 0.5 ? 'high' : 'low';
-      // Adjust obstacle positions - move low obstacles down so they are properly positioned for ducking
+      // Give it slightly more chance to spawn a low obstacle
+      const type = Math.random() > 0.6 ? 'high' : 'low';
       const obstacle: GameObject = {
         x: canvas.width,
-        y: type === 'high' ? canvas.height - 70 : canvas.height - 20, // Adjust high obstacles to be higher
+        y: type === 'high' ? canvas.height - 70 : canvas.height - 40, // Position low obstacles at player standing height
         width: 20,
-        height: type === 'high' ? 30 : 20, // Make high obstacles taller, low obstacles shorter
-        speed: gameStateRef.current.gameSpeed
+        height: type === 'high' ? 30 : 20, // High obstacles require jump, low obstacles require duck
+        speed: gameStateRef.current.gameSpeed,
+        type: type // Store the type for easier reference
       };
+      
+      // Increment score immediately when obstacle is spawned
+      scoreRef.current += 1;
+      // Force update score display
+      setScore(scoreRef.current);
+      
       gameStateRef.current.obstacles.push(obstacle);
     };
 
@@ -127,9 +135,39 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
              rect1.y + rect1.height > rect2.y;
     };
 
+    // Background elements
+    const groundY = canvas.height - 10;
+    let backgroundOffset = 0;
+
     const gameLoop = () => {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw scrolling background elements
+      if (!gameOver) {
+        backgroundOffset = (backgroundOffset - gameStateRef.current.gameSpeed) % 50;
+      }
+      
+      // Draw ground
+      ctx.fillStyle = '#333333';
+      ctx.fillRect(0, groundY, canvas.width, 10);
+      
+      // Draw background elements (stripes to show movement)
+      ctx.fillStyle = '#222222';
+      for (let i = 0; i < canvas.width/50 + 1; i++) {
+        ctx.fillRect(i * 50 + backgroundOffset, groundY - 2, 30, 2);
+      }
+      
+      // Draw distant background elements
+      ctx.fillStyle = '#111111';
+      for (let i = 0; i < 10; i++) {
+        const mountainSize = 30 + Math.sin(i * 0.3) * 20;
+        ctx.beginPath();
+        ctx.moveTo(i * 100 + (backgroundOffset * 0.5) % canvas.width, groundY);
+        ctx.lineTo(i * 100 + 50 + (backgroundOffset * 0.5) % canvas.width, groundY - mountainSize);
+        ctx.lineTo(i * 100 + 100 + (backgroundOffset * 0.5) % canvas.width, groundY);
+        ctx.fill();
+      }
 
       // Process player movement only if game is running
       if (!gameOver) {
@@ -157,13 +195,32 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
           obstacle.x -= obstacle.speed!;
         }
         
+        // Draw obstacle with color based on type
+        if (obstacle.type === 'high') {
+          ctx.fillStyle = '#FF4444'; // Red for high obstacles (jump)
+        } else {
+          ctx.fillStyle = '#4444FF'; // Blue for low obstacles (duck)
+        }
         ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
         
         // Check collision only if game is running
-        if (!gameOver && checkCollision(player, obstacle)) {
-          setGameOver(true);
-          gameStateRef.current.isRunning = false;
-          return false;
+        if (!gameOver) {
+          // Special collision handling for different obstacle types
+          if (obstacle.type === 'low') {
+            // For low obstacles, player must be ducking to avoid a collision
+            if (checkCollision(player, obstacle) && !isDucking) {
+              setGameOver(true);
+              gameStateRef.current.isRunning = false;
+              return false;
+            }
+          } else if (obstacle.type === 'high') {
+            // For high obstacles, player must be jumping to avoid a collision
+            if (checkCollision(player, obstacle) && !isJumping) {
+              setGameOver(true);
+              gameStateRef.current.isRunning = false;
+              return false;
+            }
+          }
         }
         
         return obstacle.x > -obstacle.width;
@@ -175,9 +232,7 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
         gameStateRef.current.frameCount++;
         if (gameStateRef.current.frameCount % 100 === 0) {
           spawnObstacle();
-          // Increment score and update the ref to maintain current value
-          scoreRef.current += 1;
-          setScore(scoreRef.current);
+          // Score is now incremented inside spawnObstacle
         }
 
         // Increase difficulty
@@ -186,10 +241,15 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
         }
       }
 
-      // Draw score
+      // Draw score - use the ref value directly to ensure we see updates in real time
       ctx.fillStyle = '#00FF00';
       ctx.font = '20px monospace';
-      ctx.fillText(`Score: ${score}`, 10, 30);
+      ctx.fillText(`Score: ${scoreRef.current}`, 10, 30);
+      
+      // Also update the React state periodically for high score tracking
+      if (!gameOver && scoreRef.current !== score) {
+        setScore(scoreRef.current);
+      }
       
       // Draw controls info if game is running
       if (!gameOver) {
