@@ -27,9 +27,9 @@ Available commands:
   history       - Show command history
   sudo COMMAND  - Try to run a command with sudo
   clear         - Clear terminal
-  info     - Show information about me
-  game     - Play a simple runner game
-  guess    - Play a number guessing game
+  info          - Show information about me
+  game          - Play a simple runner game
+  guess         - Play a number guessing game
 `;
 
 interface TerminalProps {
@@ -233,7 +233,7 @@ Check out my work on GitHub: https://github.com/6ogo/`);
   useEffect(() => {
     const initTerminal = async () => {
       await typeWriter(ASCII_LOGO);
-      await typeWriter('\nWelcome to Yakou8\'s Terminal! Type "help" for available commands.');
+      await typeWriter('\nWelcome to Yakou8\'s page! Type "help" for available commands.\n');
     };
     initTerminal();
 
