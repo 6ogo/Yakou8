@@ -72,108 +72,96 @@ export const VisualizationsView: React.FC = (): ReactElement => {
   // API key handling with additional checks
   const API_NINJAS_KEY = import.meta.env.VITE_API_NINJAS_KEY;
   
-  // Check if API key is available
-  useEffect(() => {
-    if (!API_NINJAS_KEY) {
-      console.warn('API Ninjas key is not available in environment variables');
-      setError('API key is missing. Using fallback data.');
-    }
-  }, []);
+  // Default/fallback location for Sweden/Stockholm
+  const DEFAULT_LOCATION: GeoData = {
+    country: 'Sweden',
+    region: 'Stockholm County',
+    city: 'Stockholm',
+    timezone: 'Europe/Stockholm',
+    latitude: 59.33,
+    longitude: 18.06,
+    countryCode: 'SE',
+    continentCode: 'EU'
+  };
 
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
         
-        // Skip API calls if API key is missing
+        // Skip API calls if API key is missing and use fallback data directly
         if (!API_NINJAS_KEY) {
+          console.warn('API Ninjas key is not available in environment variables');
           throw new Error('API key is missing');
         }
 
-        // Fetch IP address
-        let ipAddress = '';
-        try {
-          const ipResponse = await fetch('https://api.ipify.org?format=json');
-          if (!ipResponse.ok) throw new Error('Failed to fetch IP address');
-          const ipData = await ipResponse.json();
-          ipAddress = ipData.ip;
-        } catch (ipError) {
-          console.error('Error fetching IP:', ipError);
-          // Use a fallback IP if needed
-          ipAddress = '8.8.8.8'; // Google DNS as fallback
-        }
+        // Initialize with default location in case IP lookup fails
+        let locationData = DEFAULT_LOCATION;
 
-        // Fetch location data
-        let data;
         try {
-          console.log('Fetching IP location with API key length:', API_NINJAS_KEY.length);
-          
-          const response = await fetch(
-            `https://api.api-ninjas.com/v1/iplookup?address=${ipAddress}`,
-            { 
-              headers: { 
-                'X-Api-Key': API_NINJAS_KEY,
-                'Content-Type': 'application/json'
+          // Try to fetch location data based on IP
+          const ipResponse = await fetch('https://api.ipify.org?format=json');
+          if (ipResponse.ok) {
+            const ipData = await ipResponse.json();
+            const ipAddress = ipData.ip;
+            
+            const locationResponse = await fetch(
+              `https://api.api-ninjas.com/v1/iplookup?address=${ipAddress}`,
+              { 
+                headers: { 
+                  'X-Api-Key': API_NINJAS_KEY,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+            
+            if (locationResponse.ok) {
+              const data = await locationResponse.json();
+              
+              // Make sure we have valid location data before using it
+              if (data && data.country && data.is_valid !== false) {
+                // Determine continent code 
+                let continentCode = '';
+                if (['US', 'CA', 'MX'].includes(data.country_code)) continentCode = 'NA';
+                else if (['GB', 'DE', 'FR', 'IT', 'ES', 'SE', 'NO', 'FI', 'DK'].includes(data.country_code)) continentCode = 'EU';
+                else if (['CN', 'JP', 'IN', 'KR'].includes(data.country_code)) continentCode = 'AS';
+                else if (['AU', 'NZ'].includes(data.country_code)) continentCode = 'OC';
+                else if (['BR', 'AR', 'CO', 'PE', 'CL'].includes(data.country_code)) continentCode = 'SA';
+                else if (['ZA', 'NG', 'EG', 'KE', 'ET'].includes(data.country_code)) continentCode = 'AF';
+                
+                // Check if we have numeric coordinates, not strings
+                const latitude = typeof data.lat === 'number' ? data.lat : parseFloat(data.lat);
+                const longitude = typeof data.lon === 'number' ? data.lon : parseFloat(data.lon);
+                
+                // Only use data if coordinates are valid numbers
+                if (!isNaN(latitude) && !isNaN(longitude)) {
+                  locationData = {
+                    country: data.country,
+                    city: data.city || data.region,
+                    region: data.region || data.country,
+                    timezone: data.timezone,
+                    latitude: latitude,
+                    longitude: longitude,
+                    countryCode: data.country_code,
+                    continentCode
+                  };
+                }
               }
             }
-          );
-          
-          // Log full response details for debugging
-          console.log('IP Lookup status:', response.status, response.statusText);
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Error response:', errorText);
-            throw new Error(`Failed to fetch location data: ${response.status} ${response.statusText}`);
-          }
-          
-          data = await response.json();
-          console.log('IP Lookup response:', data);
-          
-          // Check if we received valid data
-          if (!data || !data.country) {
-            throw new Error('Invalid location data received');
           }
         } catch (locationError) {
           console.error('Error fetching location:', locationError);
-          // Use fallback location data
-          data = {
-            country: 'Sweden',
-            region: 'Stockholm',
-            city: '',
-            timezone: 'Europe/Stockholm',
-            lat: 59.33,
-            lon: 18.06,
-            country_code: 'SE'
-          };
+          // We'll use the default location set above
         }
+        
+        // Set location data in state
+        setGeoData(locationData);
 
-        // Determine continent code
-        let continentCode = '';
-        if (['US', 'CA', 'MX'].includes(data.country_code)) continentCode = 'NA';
-        else if (['GB', 'DE', 'FR', 'IT', 'ES', 'SE', 'NO', 'FI', 'DK'].includes(data.country_code)) continentCode = 'EU';
-        else if (['CN', 'JP', 'IN', 'KR'].includes(data.country_code)) continentCode = 'AS';
-        else if (['AU', 'NZ'].includes(data.country_code)) continentCode = 'OC';
-        else if (['BR', 'AR', 'CO', 'PE', 'CL'].includes(data.country_code)) continentCode = 'SA';
-        else if (['ZA', 'NG', 'EG', 'KE', 'ET'].includes(data.country_code)) continentCode = 'AF';
-
-        const geoInfo: GeoData = {
-          country: data.country,
-          city: data.city || data.region, // Use region as fallback if city is not available
-          region: data.region || data.country, // Use country as fallback if region is not available
-          timezone: data.timezone,
-          latitude: data.lat,
-          longitude: data.lon,
-          countryCode: data.country_code,
-          continentCode
-        };
-        setGeoData(geoInfo);
-
-        // Fetch additional data concurrently
+        // Now fetch all the other data with our location data
         await Promise.all([
-          fetchCountryData(geoInfo),
-          fetchWeatherData(geoInfo),
-          fetchGdpData(geoInfo),
+          fetchCountryData(locationData),
+          fetchWeatherData(locationData),
+          fetchGdpData(locationData),
           fetchQuote()
         ]);
 
@@ -182,30 +170,18 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         console.error('Error in fetchAllData:', err);
         setError('Error loading data: ' + (err instanceof Error ? err.message : 'An error occurred') + '. Using fallback data where available.');
 
-        // Set fallback data
-        const fallbackGeoData: GeoData = {
-          country: 'Sweden',
-          region: 'Stockholm',
-          city: 'Stockholm',
-          timezone: 'Europe/Stockholm',
-          latitude: 59.33,
-          longitude: 18.06,
-          countryCode: 'SE',
-          continentCode: 'EU'
-        };
-
-        setGeoData(fallbackGeoData);
+        // Set fallback location data
+        setGeoData(DEFAULT_LOCATION);
         
         // Since API calls are failing, use mock data directly
         console.log('Using mock data for all sections');
-        setWeatherData(generateMockWeather(fallbackGeoData));
-        setEconomicData(generateMockEconomicData(fallbackGeoData));
-        setDemographicData(generateMockDemographicData(fallbackGeoData));
-        setGeneralFacts(generateMockGeneralFacts(fallbackGeoData));
+        setWeatherData(generateMockWeather(DEFAULT_LOCATION));
+        setEconomicData(generateMockEconomicData(DEFAULT_LOCATION));
+        setDemographicData(generateMockDemographicData(DEFAULT_LOCATION));
+        setGeneralFacts(generateMockGeneralFacts(DEFAULT_LOCATION));
         
         // Still try to fetch quote with a different error handling approach
-        fetchQuote().catch(quoteError => {
-          console.error('Error fetching quote:', quoteError);
+        fetchQuote().catch(() => {
           setQuote({
             quote: "The best way to predict the future is to create it.",
             author: "Peter Drucker",
@@ -223,15 +199,8 @@ export const VisualizationsView: React.FC = (): ReactElement => {
   // Fetch country data and population data
   const fetchCountryData = async (geoInfo: GeoData) => {
     try {
-      // Skip if API key is missing
-      if (!API_NINJAS_KEY) {
-        throw new Error('API key is missing');
-      }
-      
       // Make sure we have a valid country name or code for the API
-      // For country API, using the full country name tends to work better than the code
       const countryParam = encodeURIComponent(geoInfo.country);
-      console.log(`Fetching country data for: ${countryParam}`);
       
       // Fetch country data
       const countryResponse = await fetch(
@@ -245,14 +214,10 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       );
       
       if (!countryResponse.ok) {
-        const errorText = await countryResponse.text();
-        console.error(`Country API error: ${countryResponse.status} ${countryResponse.statusText}`);
-        console.error('Error response:', errorText);
         throw new Error('Failed to fetch country data');
       }
       
       const countryData = await countryResponse.json();
-      console.log('Country data response:', countryData);
       
       if (!countryData || countryData.length === 0) {
         throw new Error('No country data found');
@@ -260,7 +225,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
 
       const country = countryData[0];
 
-      // Fetch population data using correct parameters (use countryCode if available as it's more reliable)
+      // Fetch population data
       const populationResponse = await fetch(
         `https://api.api-ninjas.com/v1/population?country=${countryParam}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
@@ -273,20 +238,17 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       // If population API succeeds, use that data
       if (populationResponse.ok) {
         const populationData = await populationResponse.json();
-        console.log('Population data:', populationData);
 
         // Check the actual structure of the population data
         if (populationData && populationData.length > 0) {
           // The API returns an array, get the first element
           const countryPopData = populationData[0];
 
-          // Extract the relevant fields (adjust field names based on actual API response)
+          // Extract the relevant fields
           population = countryPopData.population || population;
           populationGrowth = countryPopData.population_growth_rate || populationGrowth;
           urbanPopulation = countryPopData.urban_population_percent || urbanPopulation;
         }
-      } else {
-        console.warn('Population API request failed, using data from country API instead');
       }
 
       const lifeExpectancyMale = parseFloat(country.life_expectancy_male);
@@ -354,16 +316,15 @@ export const VisualizationsView: React.FC = (): ReactElement => {
     }
   };
 
-
   // Fetch weather data
   const fetchWeatherData = async (geoInfo: GeoData) => {
     try {
       // Make sure we have valid coordinates for the weather API
-      if (!geoInfo.latitude || !geoInfo.longitude) {
-        throw new Error('Missing coordinates for weather data');
+      if (!geoInfo.latitude || !geoInfo.longitude || 
+          typeof geoInfo.latitude !== 'number' || 
+          typeof geoInfo.longitude !== 'number') {
+        throw new Error('Missing or invalid coordinates for weather data');
       }
-      
-      console.log(`Fetching weather for coordinates: ${geoInfo.latitude}, ${geoInfo.longitude}`);
       
       // Fetch current weather
       const weatherResponse = await fetch(
@@ -372,12 +333,10 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       );
       
       if (!weatherResponse.ok) {
-        console.error(`Weather API error: ${weatherResponse.status} ${weatherResponse.statusText}`);
         throw new Error('Failed to fetch weather data');
       }
       
       const currentWeather = await weatherResponse.json();
-      console.log('Weather data:', currentWeather);
 
       // Fetch weather forecast
       const forecastResponse = await fetch(
@@ -386,20 +345,25 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       );
       
       if (!forecastResponse.ok) {
-        console.error(`Forecast API error: ${forecastResponse.status} ${forecastResponse.statusText}`);
         throw new Error('Failed to fetch forecast data');
       }
       
       const forecastData = await forecastResponse.json();
-      console.log('Forecast data:', forecastData);
 
       // Process forecast data into daily summaries
-      const forecastByDay: { [key: string]: any[] } = forecastData.reduce((acc: any, item: any) => {
-        const date = new Date(item.timestamp * 1000).toLocaleDateString();
-        if (!acc[date]) acc[date] = [];
-        acc[date].push(item);
-        return acc;
-      }, {});
+      const forecastByDay: { [key: string]: any[] } = {};
+      
+      // Check if forecastData is an array before processing
+      if (Array.isArray(forecastData)) {
+        forecastData.forEach(item => {
+          const date = new Date(item.timestamp * 1000).toLocaleDateString();
+          if (!forecastByDay[date]) forecastByDay[date] = [];
+          forecastByDay[date].push(item);
+        });
+      } else {
+        // If forecast data isn't an array, we'll create mock forecast data
+        throw new Error('Invalid forecast data format');
+      }
 
       const dailyForecast: ForecastDay[] = Object.entries(forecastByDay).map(([date, items]) => {
         const temps = items.map((i: any) => i.temp);
@@ -451,20 +415,16 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         throw new Error('Missing country information for GDP data');
       }
       
-      console.log(`Fetching GDP data for: ${countryParam}`);
-
       const gdpResponse = await fetch(
         `https://api.api-ninjas.com/v1/gdp?country=${encodeURIComponent(countryParam)}`,
         { headers: { 'X-Api-Key': API_NINJAS_KEY } }
       );
 
       if (!gdpResponse.ok) {
-        console.error(`GDP API error: ${gdpResponse.status} ${gdpResponse.statusText}`);
         throw new Error('Failed to fetch GDP data');
       }
 
       const gdpData = await gdpResponse.json();
-      console.log('GDP data:', gdpData);
 
       if (gdpData && gdpData.length > 0) {
         // Sort by year to get the most recent data
@@ -487,17 +447,12 @@ export const VisualizationsView: React.FC = (): ReactElement => {
     }
   };
 
-  // Fetch inspirational quote
+  // Fetch inspirational quote - don't try to use category parameter since it's premium
   const fetchQuote = async () => {
     try {
-      // Skip if API key is missing
-      if (!API_NINJAS_KEY) {
-        throw new Error('API key is missing');
-      }
-      
-      console.log('Fetching inspirational quote');
+      // Fetch a general quote instead of trying to use the category parameter
       const quoteResponse = await fetch(
-        'https://api.api-ninjas.com/v1/quotes?category=inspirational',
+        'https://api.api-ninjas.com/v1/quotes',
         { 
           headers: { 
             'X-Api-Key': API_NINJAS_KEY,
@@ -507,15 +462,11 @@ export const VisualizationsView: React.FC = (): ReactElement => {
       );
       
       if (!quoteResponse.ok) {
-        const errorText = await quoteResponse.text();
-        console.error(`Quote API error: ${quoteResponse.status} ${quoteResponse.statusText}`);
-        console.error('Error response:', errorText);
         throw new Error('Failed to fetch quote');
       }
       
       const quoteData = await quoteResponse.json();
       if (quoteData && quoteData.length > 0) {
-        console.log('Quote data:', quoteData);
         setQuote(quoteData[0]);
       } else {
         throw new Error('No quote data received');
@@ -530,7 +481,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
     }
   };
 
-  // Mock data functions (generic fallbacks)
+  // Mock data functions
   const generateMockWeather = (_geoInfo: GeoData): WeatherData => {
     // Current temperature in Stockholm in Celsius (March average)
     const temp = 2; // Actual average March temperature for Stockholm
@@ -566,42 +517,97 @@ export const VisualizationsView: React.FC = (): ReactElement => {
     return forecast;
   };
 
-  const generateMockEconomicData = (_geoInfo: GeoData): EconomicData => ({
-    gdp: 500000, // In billions
-    gdpGrowth: 2,
-    gdpPerCapita: 30000,
-    currency: 'Local Currency',
-    unemployment: 5,
-    inflation: 2,
-    industries: [
-      { name: 'Agriculture', value: 33 },
-      { name: 'Industry', value: 33 },
-      { name: 'Services', value: 34 }
-    ]
-  });
+  const generateMockEconomicData = (geoInfo: GeoData): EconomicData => {
+    // Swedish economic data
+    if (geoInfo.countryCode === 'SE') {
+      return {
+        gdp: 500, // In billions
+        gdpGrowth: 1.2,
+        gdpPerCapita: 52000,
+        currency: 'Swedish Krona',
+        unemployment: 7.5,
+        inflation: 2.3,
+        industries: [
+          { name: 'Agriculture', value: 2 },
+          { name: 'Industry', value: 33 },
+          { name: 'Services', value: 65 }
+        ]
+      };
+    }
+    
+    // Generic fallback
+    return {
+      gdp: 500,
+      gdpGrowth: 2,
+      gdpPerCapita: 30000,
+      currency: 'Local Currency',
+      unemployment: 5,
+      inflation: 2,
+      industries: [
+        { name: 'Agriculture', value: 33 },
+        { name: 'Industry', value: 33 },
+        { name: 'Services', value: 34 }
+      ]
+    };
+  };
 
-  const generateMockDemographicData = (_geoInfo: GeoData): DemographicData => ({
-    population: 50000000,
-    populationGrowth: 1,
-    lifeExpectancy: 70,
-    urbanPopulation: 60
-  });
+  const generateMockDemographicData = (geoInfo: GeoData): DemographicData => {
+    // Swedish demographic data
+    if (geoInfo.countryCode === 'SE') {
+      return {
+        population: 10400000,
+        populationGrowth: 0.6,
+        lifeExpectancy: 82.3,
+        urbanPopulation: 87.2
+      };
+    }
+    
+    // Generic fallback
+    return {
+      population: 50000000,
+      populationGrowth: 1,
+      lifeExpectancy: 70,
+      urbanPopulation: 60
+    };
+  };
 
-  const generateMockGeneralFacts = (geoInfo: GeoData): GeneralFacts => ({
-    capital: 'Main City',
-    languages: ['Primary Language'],
-    internetUsers: 70,
-    landArea: 500000, // In km²
-    interestingFacts: [
-      `${geoInfo.country} has a rich culture.`,
-      `The economy is steadily growing.`,
-      `Internet usage is widespread.`
-    ]
-  });
+  const generateMockGeneralFacts = (geoInfo: GeoData): GeneralFacts => {
+    // Swedish facts
+    if (geoInfo.countryCode === 'SE') {
+      return {
+        capital: 'Stockholm',
+        languages: ['Swedish'],
+        internetUsers: 95.5,
+        landArea: 450295, // In km²
+        interestingFacts: [
+          'Sweden has one of the highest internet penetration rates in the world.',
+          'Sweden is known for its social welfare policies and high standard of living.',
+          'The country is a constitutional monarchy with a parliamentary system.',
+          'Sweden has a strong commitment to renewable energy.',
+          'Swedish culture celebrates "fika," a coffee break tradition.'
+        ]
+      };
+    }
+    
+    // Generic fallback
+    return {
+      capital: 'Main City',
+      languages: ['Primary Language'],
+      internetUsers: 70,
+      landArea: 500000, // In km²
+      interestingFacts: [
+        `${geoInfo.country} has a rich culture.`,
+        `The economy is steadily growing.`,
+        `Internet usage is widespread.`
+      ]
+    };
+  };
 
   const formatNumber = (num: number, digits = 1): string => {
+    if (isNaN(num)) return '0';
+    
     const units = ['', 'K', 'M', 'B', 'T'];
-    const floor = Math.floor(Math.log10(Math.abs(num)) / 3);
+    const floor = Math.floor(Math.log10(Math.abs(num || 1)) / 3);
     return (num / Math.pow(1000, floor)).toFixed(digits) + units[floor];
   };
 
@@ -634,14 +640,6 @@ export const VisualizationsView: React.FC = (): ReactElement => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-red-500">
-        <p>Error loading data: {error}. Using fallback data where available.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-black text-white p-6">
       <header className="text-center mb-8">
@@ -651,6 +649,11 @@ export const VisualizationsView: React.FC = (): ReactElement => {
           <div className="mt-6 p-4 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-lg border border-green-500/30 max-w-2xl mx-auto">
             <p className="text-lg italic text-gray-200">"{quote.quote}"</p>
             <p className="text-right text-sm text-gray-400 mt-2">— {quote.author}</p>
+          </div>
+        )}
+        {error && (
+          <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg max-w-2xl mx-auto">
+            <p className="text-red-400">{error}</p>
           </div>
         )}
       </header>

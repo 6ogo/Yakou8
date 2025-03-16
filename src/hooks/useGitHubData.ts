@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Repository } from '../types';
+const token = import.meta.env.VITE_GITHUB_TOKEN;
 
 // Mock data to use as fallback when API calls fail
 const mockRepositories: Repository[] = [
@@ -45,14 +46,20 @@ export function useGitHubData() {
 
   useEffect(() => {
     const fetchData = async () => {
+      const cachedData = localStorage.getItem('githubRepos');
+      if (cachedData) {
+        setRepositories(JSON.parse(cachedData));
+        setLoading(false);
+        return;
+      }
       try {
         console.log('Fetching GitHub repositories...');
         // Fetch repositories
         const reposResponse = await fetch('https://api.github.com/users/6ogo/repos', {
           headers: {
             'Accept': 'application/vnd.github.v3+json',
+            'Authorization': `token ${token}`,
           },
-          // Add cache control to avoid hitting rate limits
           cache: 'force-cache'
         });
         
@@ -122,6 +129,7 @@ export function useGitHubData() {
         );
         
         setRepositories(reposWithCommits);
+        localStorage.setItem('githubRepos', JSON.stringify(reposWithCommits));
         setLoading(false);
       } catch (err) {
         console.error('GitHub data fetch error:', err);
