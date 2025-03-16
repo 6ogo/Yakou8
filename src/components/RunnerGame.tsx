@@ -16,8 +16,48 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(() => {
+    const savedHighScore = localStorage.getItem('runnerHighScore');
+    return savedHighScore ? parseInt(savedHighScore, 10) : 0;
+  });
+  const scoreRef = useRef(0);
+  const gameStateRef = useRef({
+    isRunning: true,
+    obstacles: [] as GameObject[],
+    frameCount: 0,
+    gameSpeed: 5
+  });
+
+  const resetGame = () => {
+    setGameOver(false);
+    setScore(0);
+    scoreRef.current = 0;
+    gameStateRef.current = {
+      isRunning: true,
+      obstacles: [],
+      frameCount: 0,
+      gameSpeed: 5
+    };
+  };
+  
+  // Update high score when game is over
+  useEffect(() => {
+    if (gameOver && score > highScore) {
+      setHighScore(score);
+      localStorage.setItem('runnerHighScore', score.toString());
+    }
+  }, [gameOver, score, highScore]);
 
   useEffect(() => {
+    // Prevent Terminal input focus when clicking the game canvas
+    const preventTerminalInterference = (e: MouseEvent) => {
+      if (e.target === canvasRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener('click', preventTerminalInterference);
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -31,21 +71,21 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
       height: 40
     };
 
-    let obstacles: GameObject[] = [];
-    let animationFrameId: number;
     let isJumping = false;
     let isDucking = false;
     let jumpVelocity = 0;
     const gravity = 0.8;
     const jumpStrength = -15;
-    let gameSpeed = 5;
-    let frameCount = 0;
+    let animationFrameId: number;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onQuit();
         return;
       }
+      
+      if (gameOver) return;
+      
       if ((e.key === 'ArrowUp' || e.key === 'w') && !isJumping) {
         isJumping = true;
         jumpVelocity = jumpStrength;
@@ -58,6 +98,8 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (gameOver) return;
+      
       if (e.key === 'ArrowDown' || e.key === 's') {
         isDucking = false;
         player.height = 40;
@@ -67,14 +109,15 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
 
     const spawnObstacle = () => {
       const type = Math.random() > 0.5 ? 'high' : 'low';
+      // Adjust obstacle positions - move low obstacles down so they are properly positioned for ducking
       const obstacle: GameObject = {
         x: canvas.width,
-        y: type === 'high' ? canvas.height - 60 : canvas.height - 20,
+        y: type === 'high' ? canvas.height - 70 : canvas.height - 20, // Adjust high obstacles to be higher
         width: 20,
-        height: type === 'high' ? 20 : 40,
-        speed: gameSpeed
+        height: type === 'high' ? 30 : 20, // Make high obstacles taller, low obstacles shorter
+        speed: gameStateRef.current.gameSpeed
       };
-      obstacles.push(obstacle);
+      gameStateRef.current.obstacles.push(obstacle);
     };
 
     const checkCollision = (rect1: GameObject, rect2: GameObject) => {
@@ -88,15 +131,18 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Update player
-      if (isJumping) {
-        player.y += jumpVelocity;
-        jumpVelocity += gravity;
+      // Process player movement only if game is running
+      if (!gameOver) {
+        // Update player
+        if (isJumping) {
+          player.y += jumpVelocity;
+          jumpVelocity += gravity;
 
-        if (player.y >= canvas.height - player.height) {
-          player.y = canvas.height - player.height;
-          isJumping = false;
-          jumpVelocity = 0;
+          if (player.y >= canvas.height - player.height) {
+            player.y = canvas.height - player.height;
+            isJumping = false;
+            jumpVelocity = 0;
+          }
         }
       }
 
@@ -105,38 +151,53 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
       ctx.fillRect(player.x, player.y, player.width, player.height);
 
       // Update and draw obstacles
-      obstacles = obstacles.filter(obstacle => {
-        obstacle.x -= obstacle.speed!;
+      gameStateRef.current.obstacles = gameStateRef.current.obstacles.filter(obstacle => {
+        // Only move obstacles if game is running
+        if (!gameOver) {
+          obstacle.x -= obstacle.speed!;
+        }
+        
         ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
         
-        if (checkCollision(player, obstacle)) {
+        // Check collision only if game is running
+        if (!gameOver && checkCollision(player, obstacle)) {
           setGameOver(true);
+          gameStateRef.current.isRunning = false;
           return false;
         }
         
         return obstacle.x > -obstacle.width;
       });
 
-      // Spawn new obstacles
-      frameCount++;
-      if (frameCount % 100 === 0) {
-        spawnObstacle();
-        setScore(prev => prev + 1);
-      }
+      // Only update game state if not game over
+      if (!gameOver) {
+        // Spawn new obstacles
+        gameStateRef.current.frameCount++;
+        if (gameStateRef.current.frameCount % 100 === 0) {
+          spawnObstacle();
+          // Increment score and update the ref to maintain current value
+          scoreRef.current += 1;
+          setScore(scoreRef.current);
+        }
 
-      // Increase difficulty
-      if (frameCount % 500 === 0) {
-        gameSpeed += 0.5;
+        // Increase difficulty
+        if (gameStateRef.current.frameCount % 500 === 0) {
+          gameStateRef.current.gameSpeed += 0.5;
+        }
       }
 
       // Draw score
       ctx.fillStyle = '#00FF00';
       ctx.font = '20px monospace';
       ctx.fillText(`Score: ${score}`, 10, 30);
-
+      
+      // Draw controls info if game is running
       if (!gameOver) {
-        animationFrameId = requestAnimationFrame(gameLoop);
+        ctx.font = '14px monospace';
+        ctx.fillText('W/⬆️: Jump | S/⬇️: Duck | ESC: Quit', canvas.width / 2 - 140, 30);
       }
+
+      animationFrameId = requestAnimationFrame(gameLoop);
     };
 
     // Start game
@@ -147,9 +208,10 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      document.removeEventListener('click', preventTerminalInterference);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [onQuit]);
+  }, [onQuit, gameOver]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black z-50">
@@ -163,13 +225,22 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ onQuit }) => {
         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80">
           <div className="text-center">
             <h2 className="text-2xl mb-4">Game Over!</h2>
-            <p className="mb-4">Score: {score}</p>
-            <button
-              onClick={onQuit}
-              className="px-4 py-2 bg-green-500 text-black rounded hover:bg-green-400"
-            >
-              Quit
-            </button>
+            <p className="mb-2">Score: {score}</p>
+            <p className="mb-4">High Score: {highScore}</p>
+            <div className="flex space-x-4 justify-center">
+              <button
+                onClick={resetGame}
+                className="px-4 py-2 bg-green-500 text-black rounded hover:bg-green-400"
+              >
+                Restart
+              </button>
+              <button
+                onClick={onQuit}
+                className="px-4 py-2 bg-green-500 text-black rounded hover:bg-green-400"
+              >
+                Quit
+              </button>
+            </div>
           </div>
         </div>
       )}
