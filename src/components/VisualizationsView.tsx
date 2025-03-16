@@ -745,7 +745,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 bg-green-500/20 rounded-lg">
                 <div className="flex items-center"><DollarSign size={18} className="mr-2" /><span>GDP</span></div>
-                <p className="text-xl mt-2">${formatNumber(economicData.gdp || 0)}B</p>
+                <p className="text-xl mt-2">$${formatNumber(economicData.gdp || 0)}B</p>
                 <p className="text-sm text-gray-400 flex items-center"><TrendingUp size={14} className="mr-1" />{economicData.gdpGrowth}% growth</p>
               </div>
               <div className="p-4 bg-green-500/20 rounded-lg">
@@ -835,20 +835,16 @@ export const VisualizationsView: React.FC = (): ReactElement => {
         <div className="space-y-6">
           <div className="bg-gray-900 rounded-lg p-6 border border-green-500/30">
             <h2 className="text-xl font-semibold mb-4 flex items-center text-green-400"><Info className="mr-2" size={20} />Facts about {geoData?.country}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 bg-green-500/20 rounded-lg">
                 <div className="flex items-center"><Landmark size={18} className="mr-2" /><span>Capital</span></div>
                 <p className="text-xl mt-2">{generalFacts.capital}</p>
               </div>
               <div className="p-4 bg-green-500/20 rounded-lg">
-                <div className="flex items-center"><Globe size={18} className="mr-2" /><span>Languages</span></div>
-                <p className="text-xl mt-2">{generalFacts.languages?.join(', ')}</p>
-              </div>
-              <div className="p-4 bg-green-500/20 rounded-lg">
                 <div className="flex items-center"><Globe size={18} className="mr-2" /><span>Land Area</span></div>
                 <p className="text-xl mt-2">{formatNumber(generalFacts.landArea || 0)} km²</p>
               </div>
-              <div className="p-4 bg-green-500/20 rounded-lg sm:col-span-2 lg:col-span-3">
+              <div className="p-4 bg-green-500/20 rounded-lg">
                 <div className="flex items-center"><Info size={18} className="mr-2" /><span>Internet Users</span></div>
                 <p className="text-xl mt-2">{generalFacts.internetUsers}%</p>
               </div>
