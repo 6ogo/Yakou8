@@ -603,15 +603,21 @@ export const VisualizationsView: React.FC = (): ReactElement => {
     };
   };
 
+  // Format numbers with appropriate units (K, M, B, T)
   const formatNumber = (num: number, digits = 1): string => {
     if (isNaN(num)) return '0';
 
     const units = ['', 'K', 'M', 'B', 'T'];
     const floor = Math.floor(Math.log10(Math.abs(num || 1)) / 3);
-    // Don't include the unit in the return value
-    return (num / Math.pow(1000, floor)).toFixed(digits);
-    // OR keep the unit here and remove it from the JSX
     return (num / Math.pow(1000, floor)).toFixed(digits) + units[floor];
+  };
+  
+  // Format currency without units for values like GDP per capita
+  const formatCurrency = (num: number): string => {
+    if (isNaN(num)) return '0';
+    
+    // Format with commas for thousands separators
+    return num.toLocaleString('en-US');
   };
 
 
@@ -744,7 +750,7 @@ export const VisualizationsView: React.FC = (): ReactElement => {
               </div>
               <div className="p-4 bg-green-500/20 rounded-lg">
                 <div className="flex items-center"><Users size={18} className="mr-2" /><span>GDP Per Capita</span></div>
-                <p className="text-xl mt-2">${formatNumber(economicData.gdpPerCapita || 0, 0)}</p>
+                <p className="text-xl mt-2">${formatCurrency(economicData.gdpPerCapita || 0)}</p>
                 <p className="text-sm text-gray-400">{economicData.currency}</p>
               </div>
               <div className="p-4 bg-green-500/20 rounded-lg">
