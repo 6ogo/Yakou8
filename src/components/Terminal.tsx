@@ -35,21 +35,20 @@ const ASCII_COFFEE = `
       ) ( (
     _______)_
  .-'---------|  
-( C|/\\/\\/\\/\\/|
- '-./\\/\\/\\/\\/|
+( C|\\/\\/\\/|
+ '-.\\/\\/\\/|
    '_________'
     '-------'
 `;
 
 const HACKER_ART = `
- _    _            _    _             
-| |  | |          | |  (_)            
-| |__| | __ _  ___| | ___ _ __   __ _ 
-|  __  |/ _\` |/ __| |/ / | '_ \\ / _\` |
-| |  | | (_| | (__|   <| | | | | (_| |
-|_|  |_|\\__,_|\\___|_|\\_\\_|_| |_|\\__, |
-                                __/ |
-                               |___/ 
+_     _         ______ _    _ _____ ______   ______ 
+| |   | |  /\   / _____) |  / |_____)  ___ \ / _____)
+| |__ | | /  \ | /     | | / /   _  | |   | | /  ___ 
+|  __)| |/ /\ \| |     | |< <   | | | |   | | | (___)
+| |   | | |__| | \_____| | \ \ _| |_| |   | | \____/|
+|_|   |_|______|\______)_|  \_|_____)_|   |_|\_____/ 
+                                                     
 `;
 
 const HELP_TEXT = `
@@ -68,11 +67,11 @@ Available commands:
   sudo COMMAND   - Try to run a command with sudo
   clear          - Clear terminal
   info           - Show information about me
-  game           - Play games (type 'game help' for options)
 `;
 
 const FUN_HELP_TEXT = `
 Fun Commands:
+  game           - Play games (type 'game help' for options)
   cat            - Show an ASCII cat
   coffee         - Brew a cup of virtual coffee
   matrix         - Display a Matrix-style effect
@@ -187,6 +186,103 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
     }
 
     isTypingRef.current = false;
+  };
+
+  // Matrix effect specifically for the ASCII logo
+  const matrixLogoEffect = async () => {
+    if (isTypingRef.current) return;
+    isTypingRef.current = true;
+
+    // Split logo into lines
+    const logoLines = ASCII_LOGO_LARGE.trim().split('\n');
+    const logoHeight = logoLines.length;
+    const logoWidth = Math.max(...logoLines.map(line => line.length));
+    
+    // Characters to use for the matrix effect
+    const matrixChars = "-*~+=#@%&|/\\$.;:";
+    
+    // Create placeholder lines of the same size as our logo
+    const placeholderLines = Array(logoHeight).fill('').map(() => 
+      Array(logoWidth).fill(' ').join('')
+    );
+    
+    // Initial output
+    placeholderLines.forEach(line => {
+      setOutput(prev => [...prev, line]);
+    });
+    
+    // Number of animation frames
+    const frames = 12;
+    
+    // Perform the animation
+    for (let frame = 0; frame < frames; frame++) {
+      await new Promise(resolve => setTimeout(resolve, 60));
+      
+      // Update each line with progressively more correct characters
+      const updatedLines = logoLines.map((logoLine) => {
+        let newLine = '';
+        
+        for (let i = 0; i < logoWidth; i++) {
+          const targetChar = i < logoLine.length ? logoLine[i] : ' ';
+          
+          // Determine if this character should be revealed in this frame
+          const shouldReveal = Math.random() < (frame / frames) * 1.2;
+          
+          if (shouldReveal) {
+            newLine += targetChar;
+          } else if (targetChar !== ' ') {
+            // For non-space characters, show a random matrix char
+            newLine += matrixChars[Math.floor(Math.random() * matrixChars.length)];
+          } else {
+            newLine += ' ';
+          }
+        }
+        
+        return newLine;
+      });
+      
+      // Update output by replacing the last logoHeight lines
+      setOutput(prev => [
+        ...prev.slice(0, prev.length - logoHeight),
+        ...updatedLines
+      ]);
+    }
+    
+    // Final update to ensure the logo is exactly right
+    setOutput(prev => [
+      ...prev.slice(0, prev.length - logoHeight),
+      ...logoLines
+    ]);
+    
+    isTypingRef.current = false;
+  };
+
+  // Matrix-style text scrambling effect for general command
+  const matrixEffect = async (iterations = 20, delay = 50) => {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()_+-=[]{}|;:,.<>?';
+    const text = "SYSTEM INFILTRATED. ACCESS GRANTED.";
+    let displayText = "";
+    
+    for (let i = 0; i < text.length; i++) {
+      displayText += "_";
+    }
+    
+    await typeWriter(displayText);
+    
+    for (let iteration = 0; iteration < iterations; iteration++) {
+      let newText = "";
+      for (let i = 0; i < text.length; i++) {
+        if (iteration === iterations - 1) {
+          newText += text[i];
+        } else if (Math.random() < (iteration / iterations)) {
+          newText += text[i];
+        } else {
+          newText += characters.charAt(Math.floor(Math.random() * characters.length));
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, delay));
+      setOutput(prev => [...prev.slice(0, -1), newText]);
+    }
   };
 
   // Initialize space shooter game state
@@ -330,36 +426,6 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
   const updateGameOutput = (newState: SpaceShooterState) => {
     const newGameOutput = renderSpaceShooter(newState);
     setGameOutput(newGameOutput);
-  };
-
-  // NEW FUNCTIONS FOR TERMINAL ENHANCEMENTS
-
-  // Matrix-style text scrambling effect
-  const matrixEffect = async (iterations = 20, delay = 50) => {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()_+-=[]{}|;:,.<>?';
-    const text = "SYSTEM INFILTRATED. ACCESS GRANTED.";
-    let displayText = "";
-    
-    for (let i = 0; i < text.length; i++) {
-      displayText += "_";
-    }
-    
-    await typeWriter(displayText);
-    
-    for (let iteration = 0; iteration < iterations; iteration++) {
-      let newText = "";
-      for (let i = 0; i < text.length; i++) {
-        if (iteration === iterations - 1) {
-          newText += text[i];
-        } else if (Math.random() < (iteration / iterations)) {
-          newText += text[i];
-        } else {
-          newText += characters.charAt(Math.floor(Math.random() * characters.length));
-        }
-      }
-      await new Promise(resolve => setTimeout(resolve, delay));
-      setOutput(prev => [...prev.slice(0, -1), newText]);
-    }
   };
 
   // Simulate hacking progress with a simple ASCII progress bar
@@ -836,9 +902,15 @@ Available games:
     const initTerminal = async () => {
       // Clear previous output when changing logo
       setOutput([]);
+      
       // Use responsive ASCII art based on screen width
-      const logoToUse = isMobile ? ASCII_LOGO_SMALL : ASCII_LOGO_LARGE;
-      await typeWriter(logoToUse);
+      if (isMobile) {
+        await typeWriter(ASCII_LOGO_SMALL);
+      } else {
+        // Use matrix effect for large logo
+        await matrixLogoEffect();
+      }
+      
       await typeWriter('\n');
       await typeWriter('\nWelcome to Yakou8\'s page! Type "help" for available commands.');
     };
