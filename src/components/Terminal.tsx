@@ -13,15 +13,20 @@ const ASCII_LOGO_LARGE = `
     ****     ****    **** ****    ****   ********   ************ ************
                                       `;
 
-// Smaller logo for mobile screens
+// Smaller logo for mobile screens (compact - fits ~30 char width)
 const ASCII_LOGO_SMALL = `
-__     __      _  ______  _    _ ____  
-\ \   / //\   | |/ / __ \| |  | |  _ \ 
- \ \_/ //  \  | ' / |  | | |  | | |_) |
-  \   // /\ \ |  <| |  | | |  | |  _ < 
-   | |/ ____ \| . \ |__| | |__| | |_) |
-   |_/_/    \_\_|\_\____/ \____/|____/ 
-                                      `;
+ __   __ _  _  __  _  _ __
+ \\ \\ / // \\| |/ / | || | _ \\
+  \\_V_// _ \\  <  | || |_) |
+   |_|/_/ \\_|_|\\_\\ \\___/___/
+`;
+
+// Extra small logo for very small screens (fits ~20 char width)
+const ASCII_LOGO_TINY = `
+ _   _ __  _  _ __
+\\ \\_/ / _|| || _/
+ |_| \\_\\_||___/
+`;
 
 const ASCII_CAT = `
   /\\_/\\  
@@ -42,13 +47,21 @@ const ASCII_COFFEE = `
 `;
 
 const HACKER_ART = `
-_     _         ______ _    _ _____ ______   ______ 
+_     _         ______ _    _ _____ ______   ______
 | |   | |  /\   / _____) |  / |_____)  ___ \ / _____)
-| |__ | | /  \ | /     | | / /   _  | |   | | /  ___ 
+| |__ | | /  \ | /     | | / /   _  | |   | | /  ___
 |  __)| |/ /\ \| |     | |< <   | | | |   | | | (___)
 | |   | | |__| | \_____| | \ \ _| |_| |   | | \____/|
-|_|   |_|______|\______)_|  \_|_____)_|   |_|\_____/ 
-                                                     
+|_|   |_|______|\______)_|  \_|_____)_|   |_|\_____/
+
+`;
+
+// Mobile-friendly hacker art
+const HACKER_ART_MOBILE = `
+ _  _  __  __  _  __
+| || |/ _||  || |/ /
+| __ |\\__ \\| || / <
+|_||_||__/ |_||_|\\_\\
 `;
 
 const HELP_TEXT = `
@@ -100,6 +113,7 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
   const [attempts, setAttempts] = useState(0);
   const [gameOutput, setGameOutput] = useState<string[]>([]); // New state for game output
   const [isMobile, setIsMobile] = useState(false);
+  const [screenWidth, setScreenWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
 
   // Space shooter game state
   interface SpaceShooterState {
@@ -121,15 +135,17 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
   type AdventureCommandHandler = (cmd: string) => Promise<void>;
   const adventureCommandRef = useRef<AdventureCommandHandler | null>(null);
 
-  // Check if device is mobile
+  // Check if device is mobile and track screen width
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      const width = window.innerWidth;
+      setScreenWidth(width);
+      setIsMobile(width < 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
+
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
@@ -171,9 +187,9 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
     "I searched everywhere but couldn't find '"
   ];
 
-  // Game constants
-  const GAME_WIDTH = 20;
-  const GAME_HEIGHT = 15; // Increased from 10 to 15 for more height
+  // Game constants - responsive for mobile
+  const GAME_WIDTH = isMobile ? 15 : 20;
+  const GAME_HEIGHT = isMobile ? 10 : 15;
 
   const typeWriter = async (text: string) => {
     if (isTypingRef.current) return;
@@ -430,7 +446,12 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
 
   // Simulate hacking progress with a simple ASCII progress bar
   const simulateHacking = async (target = "mainframe") => {
-    const stages = [
+    const stages = isMobile ? [
+      `Targeting ${target}...`,
+      "Bypassing firewall...",
+      "Exploiting...",
+      `Access granted!`
+    ] : [
       `Targeting ${target}...`,
       "Bypassing firewall...",
       "Discovering vulnerabilities...",
@@ -440,16 +461,16 @@ export const Terminal: React.FC<TerminalProps> = ({ repositories, loading, error
       "Covering tracks...",
       `Access to ${target} granted!`
     ];
-    
-    await typeWriter(HACKER_ART);
+
+    await typeWriter(isMobile ? HACKER_ART_MOBILE : HACKER_ART);
     
     for (const stage of stages) {
       await typeWriter(stage);
-      const progressBarLength = 20;
+      const progressBarLength = isMobile ? 10 : 20;
       for (let i = 0; i <= progressBarLength; i++) {
         const progress = "=".repeat(i) + " ".repeat(progressBarLength - i);
         const percentage = Math.floor((i / progressBarLength) * 100);
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, isMobile ? 50 : 100));
         setOutput(prev => [...prev.slice(0, -1), `[${progress}] ${percentage}%`]);
       }
     }
@@ -897,25 +918,38 @@ Available games:
     }
   }, [output, gameOutput]);
 
+  // Helper function to get the appropriate logo based on screen width
+  const getResponsiveLogo = () => {
+    if (screenWidth < 320) {
+      return ASCII_LOGO_TINY;
+    } else if (screenWidth < 480) {
+      return ASCII_LOGO_SMALL;
+    } else if (screenWidth < 768) {
+      return ASCII_LOGO_SMALL;
+    }
+    return ASCII_LOGO_LARGE;
+  };
+
   // Initialize terminal with appropriate ASCII art
   useEffect(() => {
     const initTerminal = async () => {
       // Clear previous output when changing logo
       setOutput([]);
-      
+
       // Use responsive ASCII art based on screen width
       if (isMobile) {
-        await typeWriter(ASCII_LOGO_SMALL);
+        const logo = screenWidth < 320 ? ASCII_LOGO_TINY : ASCII_LOGO_SMALL;
+        await typeWriter(logo);
       } else {
         // Use matrix effect for large logo
         await matrixLogoEffect();
       }
-      
+
       await typeWriter('\n');
-      await typeWriter('\nWelcome to Yakou8\'s page! Type "help" for available commands.');
+      await typeWriter(isMobile ? 'Type "help" for commands.' : '\nWelcome to Yakou8\'s page! Type "help" for available commands.');
     };
     initTerminal();
-  }, [isMobile]); // Re-run when mobile status changes
+  }, [isMobile, screenWidth]); // Re-run when mobile status or screen width changes
 
   // Set up global event listeners
   useEffect(() => {
@@ -930,33 +964,41 @@ Available games:
     };
   }, []);
 
+  // Determine the appropriate text size class based on mobile status
+  const getAsciiTextClass = () => {
+    if (isMobile) {
+      return 'text-[10px] xs:text-xs sm:text-sm leading-none';
+    }
+    return 'leading-tight';
+  };
+
   return (
     <div
       ref={terminalRef}
-      className="min-h-screen p-4 font-mono text-green-500 bg-black overflow-y-auto overflow-x-hidden"
+      className="min-h-screen p-2 sm:p-4 font-mono text-green-500 bg-black overflow-y-auto overflow-x-hidden"
       style={{ maxHeight: '100vh' }}
     >
-      <div className="whitespace-pre-wrap break-words max-w-full">
+      <div className={`whitespace-pre break-all sm:break-words max-w-full ${isMobile ? 'text-[10px] xs:text-xs sm:text-sm' : ''}`}>
         {output.map((line, i) => (
-          <div key={i} className="leading-tight">{line}</div>
+          <div key={i} className={getAsciiTextClass()}>{line}</div>
         ))}
         {gameActive && currentGame === 'spaceshooter' && (
           <div className="game-container mt-2">
             {gameOutput.map((line, i) => (
-              <div key={i} className="leading-tight">{line}</div>
+              <div key={i} className={getAsciiTextClass()}>{line}</div>
             ))}
           </div>
         )}
       </div>
-      <div className="flex items-center">
-        <span className="whitespace-pre">yakou8@github:{currentPath}$ </span>
+      <div className={`flex items-center ${isMobile ? 'text-xs' : ''}`}>
+        <span className="whitespace-pre shrink-0">{isMobile ? '$' : `yakou8@github:${currentPath}$`} </span>
         <input
           ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent outline-none border-none ml-2"
+          className="flex-1 bg-transparent outline-none border-none ml-1 sm:ml-2 min-w-0"
           autoFocus
         />
       </div>
