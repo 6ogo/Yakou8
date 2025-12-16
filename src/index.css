@@ -48,3 +48,25 @@
   80% { transform: translate(-15%, 0); }
   90% { transform: translate(10%, 5%); }
 }
+
+/* Mobile-specific terminal styles */
+@media (max-width: 480px) {
+  .font-mono {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+}
+
+@media (max-width: 320px) {
+  .font-mono {
+    font-size: 8px;
+    line-height: 1.1;
+  }
+}
+
+/* Ensure ASCII art doesn't break on mobile */
+.terminal-ascii {
+  white-space: pre;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
